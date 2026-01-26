@@ -4,8 +4,8 @@ import json
 def test_search():
     print("Testing Symbol Search API...")
     
-    # 1. Search Stock (empty query -> default list)
-    url = "http://localhost:8000/api/symbols/search"
+    # 1. 股票搜索（空查询 -> 返回默认列表）
+    url = "http://localhost:8802/api/symbols/search"
     print("\n--- Stock Search (Default) ---")
     try:
         res = requests.get(url, params={"market": "stock"})
@@ -16,7 +16,7 @@ def test_search():
     except Exception as e:
         print(f"Error: {e}")
 
-    # 2. Search Stock (Specific)
+    # 2. 股票搜索（指定关键词）
     print("\n--- Stock Search ('茅台') ---")
     try:
         res = requests.get(url, params={"q": "茅台", "market": "stock"})
@@ -26,7 +26,7 @@ def test_search():
     except Exception as e:
         print(f"Error: {e}")
 
-    # 3. Search Futures
+    # 3. 期货搜索
     print("\n--- Futures Search ---")
     try:
         res = requests.get(url, params={"market": "futures"})

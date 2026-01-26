@@ -1,10 +1,10 @@
 import requests
 import json
 
-# Trigger detection again to save to DB
+# 再次触发检测以保存到数据库
 print("Triggering detection...")
 try:
-    requests.post("http://localhost:8000/api/detect/ma", json={
+    requests.post("http://localhost:8802/api/detect/ma", json={
         "symbols": ["600519"],
         "market": "stock",
         "period": "daily",
@@ -15,9 +15,9 @@ try:
 except:
     pass
 
-# Check history
+# 查询历史记录
 print("Checking history...")
-url = "http://localhost:8000/api/history"
+url = "http://localhost:8802/api/history"
 try:
     response = requests.get(url)
     print("Status Code:", response.status_code)

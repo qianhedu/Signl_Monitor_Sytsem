@@ -3,7 +3,7 @@ import pandas as pd
 
 try:
     print("Fetching futures data...")
-    # Try a dominant contract, e.g., RB0 (Rebar dominant)
+    # 测试主力合约，例如 RB0（螺纹钢主力）
     df = ak.futures_zh_daily_sina(symbol="RB0")
     print("Columns:", df.columns)
     print(df.tail())

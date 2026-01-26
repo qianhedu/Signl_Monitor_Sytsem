@@ -1,7 +1,7 @@
 import requests
 import json
 
-url = "http://localhost:8000/api/detect/ma"
+url = "http://localhost:8802/api/detect/ma"
 data = {
     "symbols": ["000001", "600519"],
     "market": "stock",

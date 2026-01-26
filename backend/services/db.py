@@ -17,8 +17,8 @@ def init_db():
             signal_date TEXT NOT NULL,
             signal_type TEXT NOT NULL,
             price REAL,
-            indicator_type TEXT NOT NULL, -- 'DKX' or 'MA'
-            indicator_values TEXT, -- JSON string of indicator values
+            indicator_type TEXT NOT NULL, -- 指标类型（DKX 或 MA）
+            indicator_values TEXT, -- 指标数值的 JSON 字符串
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -27,13 +27,13 @@ def init_db():
 
 def save_signal(data: Dict[str, Any]):
     """
-    Save a detected signal to the database.
+    将检测到的信号保存到数据库。
     """
     try:
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         
-        # Check if this specific signal (symbol, date, type) already exists to avoid duplicates
+        # 检查该信号（代码、日期、类型）是否已存在，避免重复
         c.execute('''
             SELECT id FROM signal_history 
             WHERE symbol = ? AND signal_date = ? AND signal_type = ? AND indicator_type = ?
@@ -41,9 +41,9 @@ def save_signal(data: Dict[str, Any]):
         
         if c.fetchone():
             conn.close()
-            return # Already exists
+            return # 已存在
             
-        # Prepare JSON for extra values
+        # 准备额外指标值的 JSON
         extra_values = {}
         for k in ['dkx', 'madkx', 'ma_short', 'ma_long']:
             if k in data and data[k] is not None:

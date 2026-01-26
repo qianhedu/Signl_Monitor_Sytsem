@@ -2,7 +2,7 @@ import akshare as ak
 import pandas as pd
 import os
 
-# Unset proxy
+# 取消代理设置
 os.environ.pop("HTTP_PROXY", None)
 os.environ.pop("HTTPS_PROXY", None)
 os.environ.pop("http_proxy", None)

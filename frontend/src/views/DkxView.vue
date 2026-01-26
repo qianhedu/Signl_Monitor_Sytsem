@@ -4,9 +4,11 @@ import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
 import { nextTick } from 'vue'
+import ExcelJS from 'exceljs'
 
 interface SignalResult {
   symbol: string
+  name?: string
   date: string
   signal: string
   close: number
@@ -16,10 +18,10 @@ interface SignalResult {
 }
 
 const form = reactive({
-  symbols: ['600519', '000001'],
-  market: 'stock',
-  period: 'daily',
-  lookback: 5
+  symbols: ['RB0','FU0','JM0','MA0'],
+  market: 'futures',
+  period: '60',
+  lookback: 10
 })
 
 const loading = ref(false)
@@ -28,6 +30,7 @@ const symbolLoading = ref(false)
 const results = ref<SignalResult[]>([])
 const chartDialogVisible = ref(false)
 const currentSymbol = ref('')
+let chartInstance: echarts.ECharts | null = null
 
 const searchSymbols = async (query: string) => {
   symbolLoading.value = true
@@ -54,15 +57,15 @@ const addBatch = async (type: 'hs300' | 'all_futures') => {
       params: { q: query, market: form.market }
     })
     
-    // Merge options and select all
+    // 合并选项并全选
     const newOptions = response.data
-    // Update options to include new ones so they display correctly
-    // Use a map to avoid duplicates
+    // 更新选项以包含新增项，保证显示正确
+    // 使用 Map 结构避免重复
     const optionMap = new Map(symbolOptions.value.map(o => [o.value, o]))
     newOptions.forEach((o: any) => optionMap.set(o.value, o))
     symbolOptions.value = Array.from(optionMap.values())
     
-    // Add to selected symbols if not present
+    // 将新增代码加入已选集合（去重）
     const newValues = newOptions.map((o: any) => o.value)
     const currentSet = new Set(form.symbols)
     newValues.forEach((v: string) => currentSet.add(v))
@@ -109,19 +112,24 @@ const showChart = async (row: SignalResult) => {
   chartDialogVisible.value = true
   
   await nextTick()
-  initChart(row.details.chart_data)
+  initChart(row.details.chart_data, row)
 }
 
-const initChart = (data: any[]) => {
+const initChart = (data: any[], row: SignalResult) => {
   const chartDom = document.getElementById('chart-container')
   if (!chartDom) return
   
   const myChart = echarts.init(chartDom)
+  chartInstance = myChart
   
   const dates = data.map(item => item.date)
   const kLineData = data.map(item => [item.open, item.close, item.low, item.high])
   const dkxData = data.map(item => item.dkx)
   const madkxData = data.map(item => item.madkx)
+
+  const idx = dates.indexOf(row.date)
+  const priceAtSignal = idx >= 0 ? data[idx].close : null
+  const isBuy = row.signal === 'BUY'
   
   const option = {
     title: { text: `DKX 图表 - ${currentSymbol.value}` },
@@ -130,7 +138,7 @@ const initChart = (data: any[]) => {
       axisPointer: { type: 'cross' }
     },
     legend: { data: ['K线', 'DKX', 'MADKX'] },
-    grid: { left: '10%', right: '10%', bottom: '15%' },
+    grid: { left: '5%', right: '5%', bottom: '5%' },
     xAxis: { type: 'category', data: dates, scale: true },
     yAxis: { scale: true, splitArea: { show: true } },
     dataZoom: [{ type: 'inside', start: 50, end: 100 }, { show: true, type: 'slider', top: '90%' }],
@@ -138,7 +146,17 @@ const initChart = (data: any[]) => {
       {
         name: 'K线',
         type: 'candlestick',
-        data: kLineData
+        data: kLineData,
+        markPoint: idx >= 0 && priceAtSignal !== null ? {
+          symbol: 'circle',
+          symbolSize: 15,
+          symbolOffset: [0, -20],
+          itemStyle: { color: isBuy ? '#d14a61' : '#6abf47' },
+          label: { formatter: isBuy ? '买入' : '卖出', color: isBuy ? '#d14a61' : '#6abf47', position: 'top'},
+          data: [
+            { coord: [row.date, priceAtSignal] }
+          ]
+        } : undefined
       },
       {
         name: 'DKX',
@@ -160,17 +178,101 @@ const initChart = (data: any[]) => {
   myChart.setOption(option)
 }
 
-const exportData = () => {
-  const csvContent = "data:text/csv;charset=utf-8," 
-    + "Symbol,Date,Signal,Price,DKX,MADKX\n"
-    + results.value.map(r => `${r.symbol},${r.date},${r.signal},${r.close},${r.dkx},${r.madkx}`).join("\n")
-    
-  const encodedUri = encodeURI(csvContent)
-  const link = document.createElement("a")
-  link.setAttribute("href", encodedUri)
-  link.setAttribute("download", "dkx_signals.csv")
+const downloadChart = () => {
+  if (!chartInstance) return
+  const url = chartInstance.getDataURL({ type: 'png', pixelRatio: 2, backgroundColor: '#fff' })
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `${currentSymbol.value}_dkx.png`
   document.body.appendChild(link)
   link.click()
+  document.body.removeChild(link)
+}
+
+const generateRowChart = async (row: SignalResult) => {
+  const container = document.createElement('div')
+  container.style.position = 'fixed'
+  container.style.left = '-9999px'
+  container.style.top = '-9999px'
+  container.style.width = '600px'
+  container.style.height = '360px'
+  document.body.appendChild(container)
+  const chart = echarts.init(container)
+  const data = row.details.chart_data
+  const dates = data.map((item: any) => item.date)
+  const kLineData = data.map((item: any) => [item.open, item.close, item.low, item.high])
+  const dkxData = data.map((item: any) => item.dkx)
+  const madkxData = data.map((item: any) => item.madkx)
+  const idx = dates.indexOf(row.date)
+  const priceAtSignal = idx >= 0 ? data[idx].close : null
+  const isBuy = row.signal === 'BUY'
+  chart.setOption({
+    title: { text: `${row.name ? row.name + ' (' + row.symbol + ')' : row.symbol}` },
+    legend: { data: ['K线', 'DKX', 'MADKX'] },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
+    grid: { left: '5%', right: '5%', bottom: '5%' },
+    xAxis: { type: 'category', data: dates, scale: true },
+    yAxis: { scale: true, splitArea: { show: true } },
+    series: [
+      { name: 'K线', type: 'candlestick', data: kLineData,
+        markPoint: idx >= 0 && priceAtSignal !== null ? {
+          symbol: 'circle', 
+          symbolSize: 15,
+          symbolOffset: [0, -20],
+          itemStyle: { color: isBuy ? '#d14a61' : '#6abf47' },
+          label: { formatter: isBuy ? '买入' : '卖出', color: isBuy ? '#d14a61' : '#6abf47', position: 'top' },
+          data: [{ coord: [row.date, priceAtSignal] }]
+        } : undefined },
+      { name: 'DKX', type: 'line', data: dkxData, smooth: true },
+      { name: 'MADKX', type: 'line', data: madkxData, smooth: true, lineStyle: { type: 'dashed' } }
+    ]
+  })
+  chart.resize()
+  await new Promise(r => setTimeout(r, 200))
+  const url = chart.getDataURL({ type: 'png', pixelRatio: 2, backgroundColor: '#fff' })
+  chart.dispose()
+  document.body.removeChild(container)
+  return url
+}
+
+const exportExcel = async () => {
+  if (!results.value.length) return
+  const wb = new ExcelJS.Workbook()
+  const ws = wb.addWorksheet('DKX信号')
+  ws.columns = [
+    { header: '标的', key: 'target', width: 18 },
+    { header: '信号日期', key: 'date', width: 18 },
+    { header: '信号', key: 'signal', width: 10 },
+    { header: '收盘价', key: 'close', width: 10 },
+    { header: 'DKX', key: 'dkx', width: 10 },
+    { header: 'MADKX', key: 'madkx', width: 10 },
+    { header: '图表', key: 'chart', width: 75 }
+  ]
+  for (let i = 0; i < results.value.length; i++) {
+    const r = results.value[i]
+    const dataRow = ws.addRow({
+      target: r.name ? `${r.name} (${r.symbol})` : r.symbol,
+      date: r.date,
+      signal: r.signal === 'BUY' ? '买入' : '卖出',
+      close: r.close,
+      dkx: r.dkx,
+      madkx: r.madkx
+    })
+    // 可选：图片单独行
+    dataRow.height = 280
+    const url = await generateRowChart(r)
+    const base64 = url.split(',')[1]
+    const imageId = wb.addImage({ base64, extension: 'png' })
+    ws.addImage(imageId, { tl: { col: 6, row: dataRow.number - 1 }, ext: { width: 600, height: 360 } })
+  }
+  const buf = await wb.xlsx.writeBuffer()
+  const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+  const link = document.createElement('a')
+  link.href = URL.createObjectURL(blob)
+  link.download = `DKX指标信号.xlsx`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
 }
 
 searchSymbols('')
@@ -219,13 +321,15 @@ searchSymbols('')
         </el-form-item>
         <el-form-item label="周期">
           <el-select v-model="form.period" placeholder="选择周期" style="width: 120px">
+            <el-option label="5分钟" value="5" />
+            <el-option label="15分钟" value="15" />
+            <el-option label="30分钟" value="30" />
+            <el-option label="60分钟" value="60" />
+            <el-option label="120分钟" value="120" />
+            <el-option label="240分钟" value="240" />
             <el-option label="日线" value="daily" />
             <el-option label="周线" value="weekly" />
             <el-option label="月线" value="monthly" />
-            <el-option label="60分钟" value="60" />
-            <el-option label="30分钟" value="30" />
-            <el-option label="15分钟" value="15" />
-            <el-option label="5分钟" value="5" />
           </el-select>
         </el-form-item>
         <el-form-item label="回溯K线数">
@@ -233,7 +337,7 @@ searchSymbols('')
         </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="detect" :loading="loading">开始检测</el-button>
-          <el-button type="success" @click="exportData" :disabled="results.length === 0">导出</el-button>
+          <el-button type="success" @click="exportExcel" :disabled="results.length === 0">导出Excel</el-button>
         </el-form-item>
       </el-form>
     </el-card>
@@ -245,7 +349,11 @@ searchSymbols('')
         </div>
       </template>
       <el-table :data="results" style="width: 100%" v-loading="loading">
-        <el-table-column prop="symbol" label="标的" width="120" />
+        <el-table-column label="标的" width="200">
+          <template #default="scope">
+            {{ scope.row.name ? `${scope.row.name} (${scope.row.symbol})` : scope.row.symbol }}
+          </template>
+        </el-table-column>
         <el-table-column prop="date" label="信号日期" width="120" />
         <el-table-column prop="signal" label="信号" width="100">
           <template #default="scope">
@@ -265,8 +373,11 @@ searchSymbols('')
       </el-table>
     </el-card>
 
-    <el-dialog v-model="chartDialogVisible" title="信号图表" width="80%">
-      <div id="chart-container" style="width: 100%; height: 400px;"></div>
+    <el-dialog v-model="chartDialogVisible" title="信号图表" width="95%" top="4vh">
+      <div style="margin-bottom: 10px; text-align: right;">
+        <el-button size="small" type="primary" @click="downloadChart">下载PNG</el-button>
+      </div>
+          <div id="chart-container" style="width: 100%; height: 700px;"></div>
     </el-dialog>
   </div>
 </template>

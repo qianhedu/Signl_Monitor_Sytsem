@@ -4,21 +4,21 @@ import uvicorn
 from typing import List
 import pandas as pd
 
-# Import local modules
-# Assuming running from 'backend' or root. If from root, need 'backend.models'. 
-# But standard is running inside backend or setting PYTHONPATH.
-# I will use relative imports or assume running 'python main.py' inside backend folder.
+# 导入本地模块
+# 通常在 backend 目录运行。如果从项目根运行，需要使用 'backend.models' 等绝对路径。
+# 标准做法是在 backend 下运行或正确设置 PYTHONPATH。
+# 这里优先使用相对导入，或假设在 backend 目录下执行 'python main.py'。
 try:
     from models import DetectionRequest, MaDetectionRequest, DetectionResponse, SignalResult
     from services.indicators import get_market_data, calculate_dkx, check_dkx_signal, calculate_ma, check_ma_signal
     from services.db import init_db, save_signal, get_history
-    from services.metadata import search_symbols
+    from services.metadata import search_symbols, get_symbol_name
 except ImportError:
-    # Try absolute import if running from root
+    # 若从项目根目录运行，尝试使用绝对导入
     from backend.models import DetectionRequest, MaDetectionRequest, DetectionResponse, SignalResult
     from backend.services.indicators import get_market_data, calculate_dkx, check_dkx_signal, calculate_ma, check_ma_signal
     from backend.services.db import init_db, save_signal, get_history
-    from backend.services.metadata import search_symbols
+    from backend.services.metadata import search_symbols, get_symbol_name
 
 app = FastAPI(title="Signal Monitor System API")
 
@@ -26,7 +26,7 @@ app = FastAPI(title="Signal Monitor System API")
 def on_startup():
     init_db()
 
-# Configure CORS
+# 配置 CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -44,10 +44,10 @@ async def detect_dkx(request: DetectionRequest):
     results = []
     
     for symbol in request.symbols:
-        # Fetch data
-        # Note: akshare symbols usually need checking (e.g., '000001' for sh/sz needs adjustment or correct code)
-        # We assume user provides correct code or we handle it. 
-        # stock_zh_a_hist takes 6 digit code.
+        # 获取数据
+        # 注：akshare 的股票代码常需检查（如 '000001' 的交易所前缀），
+        # 这里假设用户提供了正确代码，或内部进行处理。
+        # stock_zh_a_hist 接受 6 位股票代码。
         
         try:
             df = get_market_data(symbol, request.market, request.period)
@@ -58,27 +58,29 @@ async def detect_dkx(request: DetectionRequest):
             signal_info = check_dkx_signal(df, request.lookback)
             
             if signal_info:
-                # Prepare result
-                # We might want to send the chart data too, but for now just the signal
-                # To draw chart, frontend needs OHLC + DKX + MADKX history.
-                # Let's include the last 100 candles in 'details' for charting
+                # 组装结果
+                # 可同时返回图表数据；前端绘图需要 OHLC + DKX + MADKX 历史。
+                # 在 details 中附带最近若干根 K 线用于绘图。
                 
-                chart_data = df.tail(100).reset_index().to_dict(orient='records')
-                # Convert timestamp to string
+                chart_data = df.tail(500).reset_index().to_dict(orient='records')
                 for item in chart_data:
-                    item['date'] = item['date'].strftime("%Y-%m-%d")
+                    if request.period in ["240", "120", "60", "30", "15", "5", "1"]:
+                        item['date'] = item['date'].strftime("%Y-%m-%d %H:%M")
+                    else:
+                        item['date'] = item['date'].strftime("%Y-%m-%d")
                 
                 result = SignalResult(
                     symbol=symbol,
+                    name=get_symbol_name(symbol, request.market),
                     date=signal_info['date'],
                     signal=signal_info['signal'],
                     close=signal_info['price'],
                     dkx=signal_info['dkx'],
                     madkx=signal_info['madkx'],
-                    details={"chart_data": chart_data}
+                    details={"chart_data": chart_data, "signal_point": {"date": signal_info['date'], "signal": signal_info['signal']}}
                 )
                 
-                # Save to DB
+                # 保存到数据库
                 save_data = result.dict()
                 save_data['market'] = request.market
                 save_data['indicator_type'] = 'DKX'
@@ -106,21 +108,25 @@ async def detect_ma(request: MaDetectionRequest):
             signal_info = check_ma_signal(df, request.lookback)
             
             if signal_info:
-                chart_data = df.tail(100).reset_index().to_dict(orient='records')
+                chart_data = df.tail(500).reset_index().to_dict(orient='records')
                 for item in chart_data:
-                    item['date'] = item['date'].strftime("%Y-%m-%d")
+                    if request.period in ["240", "120", "60", "30", "15", "5", "1"]:
+                        item['date'] = item['date'].strftime("%Y-%m-%d %H:%M")
+                    else:
+                        item['date'] = item['date'].strftime("%Y-%m-%d")
                 
                 result = SignalResult(
                     symbol=symbol,
+                    name=get_symbol_name(symbol, request.market),
                     date=signal_info['date'],
                     signal=signal_info['signal'],
                     close=signal_info['price'],
                     ma_short=signal_info['ma_short'],
                     ma_long=signal_info['ma_long'],
-                    details={"chart_data": chart_data}
+                    details={"chart_data": chart_data, "signal_point": {"date": signal_info['date'], "signal": signal_info['signal']}}
                 )
                 
-                # Save to DB
+                # 保存到数据库
                 save_data = result.dict()
                 save_data['market'] = request.market
                 save_data['indicator_type'] = 'MA'
@@ -143,4 +149,4 @@ def search_market_symbols(q: str = "", market: str = "stock"):
     return search_symbols(q, market)
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8802, reload=True)

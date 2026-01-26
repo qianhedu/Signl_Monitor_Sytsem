@@ -3,48 +3,48 @@ import json
 from backend.services.indicators import get_market_data
 
 def test_metadata_search():
-    print("\n--- Testing Metadata Search ---")
+    print("\n--- 测试元数据搜索 ---")
     try:
-        # Test HS300
-        url = "http://localhost:8000/api/symbols/search"
+        # 测试沪深300
+        url = "http://localhost:8802/api/symbols/search"
         res = requests.get(url, params={"q": "hs300", "market": "stock"})
         data = res.json()
-        print(f"HS300 Count: {len(data)}")
+        print(f"沪深300数量: {len(data)}")
         if data:
-            print("First HS300:", data[0])
+            print("沪深300首项:", data[0])
             
-        # Test All Futures
+        # 测试全部期货
         res = requests.get(url, params={"q": "all", "market": "futures"})
         data = res.json()
-        print(f"All Futures Count: {len(data)}")
+        print(f"期货数量: {len(data)}")
         if data:
-            print("First Future:", data[0])
+            print("期货首项:", data[0])
     except Exception as e:
-        print(f"Error search: {e}")
+        print(f"搜索错误: {e}")
 
 def test_minute_data():
-    print("\n--- Testing Minute Data Fetching (Backend Logic) ---")
+    print("\n--- 测试分钟数据获取（后端逻辑） ---")
     try:
-        # Stock Minute
-        # 600519 -> sh600519 inside function
-        print("Fetching 600519 60m...")
+        # 股票分钟
+        # 600519 -> 函数内部转换为 sh600519
+        print("获取 600519 60分钟数据...")
         df = get_market_data("600519", market="stock", period="60")
         print(f"Rows: {len(df)}")
         if not df.empty:
             print(df.tail(2))
             
-        # Futures Minute
-        print("Fetching RB0 60m...")
+        # 期货分钟
+        print("获取 RB0 60分钟数据...")
         df = get_market_data("RB0", market="futures", period="60")
         print(f"Rows: {len(df)}")
         if not df.empty:
             print(df.tail(2))
             
     except Exception as e:
-        print(f"Error data: {e}")
+        print(f"数据错误: {e}")
 
 if __name__ == "__main__":
-    # Ensure backend server is running for search test, 
-    # but we can test get_market_data directly
+    # 若需进行搜索测试，请确保后端已运行；
+    # 此处直接测试 get_market_data
     test_minute_data()
-    # test_metadata_search() # Uncomment if server is running
+    # test_metadata_search() # 若后端已运行，可取消注释
