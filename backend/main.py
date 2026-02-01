@@ -8,23 +8,28 @@ import pandas as pd
 # Assuming running from 'backend' or root. If from root, need 'backend.models'. 
 # But standard is running inside backend or setting PYTHONPATH.
 # I will use relative imports or assume running 'python main.py' inside backend folder.
+from contextlib import asynccontextmanager
+
 try:
     from models import DetectionRequest, MaDetectionRequest, DetectionResponse, SignalResult
     from services.indicators import get_market_data, calculate_dkx, check_dkx_signal, calculate_ma, check_ma_signal
     from services.db import init_db, save_signal, get_history
     from services.metadata import search_symbols
+    from routers import backtest, symbols
 except ImportError:
     # Try absolute import if running from root
     from backend.models import DetectionRequest, MaDetectionRequest, DetectionResponse, SignalResult
     from backend.services.indicators import get_market_data, calculate_dkx, check_dkx_signal, calculate_ma, check_ma_signal
     from backend.services.db import init_db, save_signal, get_history
     from backend.services.metadata import search_symbols
+    from backend.routers import backtest, symbols
 
-app = FastAPI(title="Signal Monitor System API")
-
-@app.on_event("startup")
-def on_startup():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     init_db()
+    yield
+
+app = FastAPI(title="Signal Monitor System API", lifespan=lifespan)
 
 # Configure CORS
 app.add_middleware(
@@ -34,6 +39,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(backtest.router, prefix="/api/backtest", tags=["backtest"])
+app.include_router(symbols.router, prefix="/api/symbols", tags=["symbols"])
 
 @app.get("/")
 def read_root():
@@ -141,6 +149,10 @@ def get_signal_history(limit: int = 100):
 @app.get("/api/symbols/search")
 def search_market_symbols(q: str = "", market: str = "stock"):
     return search_symbols(q, market)
+
+@app.get("/api/symbols/hot")
+def get_hot_symbols_endpoint():
+    return get_default_hot_symbols()
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

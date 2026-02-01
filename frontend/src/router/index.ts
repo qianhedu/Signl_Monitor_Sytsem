@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import Layout from '../components/Layout.vue'
 import DkxView from '../views/DkxView.vue'
 import MaView from '../views/MaView.vue'
+import DkxBacktestView from '../views/DkxBacktestView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -19,6 +20,12 @@ const router = createRouter({
           name: 'dkx',
           component: DkxView,
           meta: { title: 'DKX 信号检测' }
+        },
+        {
+          path: 'dkx-backtest',
+          name: 'dkx-backtest',
+          component: DkxBacktestView,
+          meta: { title: 'DKX 信号策略统计' }
         },
         {
           path: 'ma',

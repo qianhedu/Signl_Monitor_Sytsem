@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { RouterView, useRoute } from 'vue-router'
 import { computed } from 'vue'
-import { Monitor, TrendCharts } from '@element-plus/icons-vue'
+import { Monitor, TrendCharts, DataAnalysis } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const activeMenu = computed(() => route.path)
@@ -22,6 +22,10 @@ const activeMenu = computed(() => route.path)
           <el-menu-item index="/dkx">
             <el-icon><Monitor /></el-icon>
             <span>DKX 信号检测</span>
+          </el-menu-item>
+          <el-menu-item index="/dkx-backtest">
+            <el-icon><DataAnalysis /></el-icon>
+            <span>DKX 信号策略统计</span>
           </el-menu-item>
           <el-menu-item index="/ma">
             <el-icon><TrendCharts /></el-icon>

@@ -1,6 +1,10 @@
 import akshare as ak
 import pandas as pd
 from typing import List, Dict
+try:
+    from services.futures_master import load_contracts
+except ImportError:
+    from backend.services.futures_master import load_contracts
 
 # Simple in-memory cache
 _STOCK_CACHE = None
@@ -72,36 +76,48 @@ def get_stock_list() -> List[Dict[str, str]]:
 
 def get_futures_list() -> List[Dict[str, str]]:
     """
-    Get list of Futures (Extended).
+    Get list of Futures (from futures_contracts.json).
     """
     global _FUTURES_CACHE
     if _FUTURES_CACHE is not None:
         return _FUTURES_CACHE
 
-    # Extended Futures Varieties (Dominant 0)
-    common_futures = [
-        # Shanghai Futures Exchange
-        ("RB0", "螺纹钢主力"), ("HC0", "热卷主力"), ("FU0", "燃油主力"), ("BU0", "沥青主力"), ("RU0", "橡胶主力"),
-        ("SP0", "纸浆主力"), ("CU0", "沪铜主力"), ("AL0", "沪铝主力"), ("ZN0", "沪锌主力"), ("PB0", "沪铅主力"),
-        ("NI0", "沪镍主力"), ("SN0", "沪锡主力"), ("AU0", "黄金主力"), ("AG0", "白银主力"), ("SS0", "不锈钢主力"),
-        # Dalian Commodity Exchange
-        ("M0", "豆粕主力"), ("Y0", "豆油主力"), ("A0", "豆一主力"), ("B0", "豆二主力"), ("P0", "棕榈油主力"),
-        ("C0", "玉米主力"), ("CS0", "淀粉主力"), ("JD0", "鸡蛋主力"), ("I0", "铁矿石主力"), ("J0", "焦炭主力"),
-        ("JM0", "焦煤主力"), ("L0", "塑料主力"), ("V0", "PVC主力"), ("PP0", "聚丙烯主力"), ("EG0", "乙二醇主力"),
-        ("EB0", "苯乙烯主力"), ("PG0", "LPG主力"),
-        # Zhengzhou Commodity Exchange
-        ("SR0", "白糖主力"), ("CF0", "棉花主力"), ("TA0", "PTA主力"), ("MA0", "甲醇主力"), ("FG0", "玻璃主力"),
-        ("SA0", "纯碱主力"), ("OI0", "菜油主力"), ("RM0", "菜粕主力"), ("RS0", "菜籽主力"), ("ZC0", "动力煤主力"),
-        ("SF0", "硅铁主力"), ("SM0", "锰硅主力"), ("AP0", "苹果主力"), ("CJ0", "红枣主力"), ("PK0", "花生主力"),
-        ("UR0", "尿素主力"),
-        # CFFEX
-        ("IF0", "沪深300主力"), ("IC0", "中证500主力"), ("IH0", "上证50主力"), ("IM0", "中证1000主力"),
-        ("T0", "10年期国债主力"), ("TF0", "5年期国债主力"), ("TS0", "2年期国债主力")
-    ]
+    contracts = load_contracts()
+    results = []
     
-    results = [{"value": code, "label": f"{code} {name}"} for code, name in common_futures]
+    # Sort by code for better UX
+    sorted_codes = sorted(contracts.keys())
+    
+    for code in sorted_codes:
+        info = contracts[code]
+        name = info.get('name', code)
+        # Create "Main Contract" (0 suffix) entry
+        # Usually users trade the main continuous contract
+        symbol = f"{code}0"
+        label = f"{symbol} {name}主力"
+        results.append({"value": symbol, "label": label})
+
+    # If cache is empty (json not found), fallback or just return empty
+    if not results:
+        # Fallback to a few common ones if json is missing
+        return [
+            {"value": "RB0", "label": "RB0 螺纹钢主力"},
+            {"value": "I0", "label": "I0 铁矿石主力"},
+            {"value": "CU0", "label": "CU0 沪铜主力"},
+        ]
+        
     _FUTURES_CACHE = results
     return results
+
+def get_default_hot_symbols() -> List[str]:
+    """
+    Return default hot symbols configured in backend.
+    """
+    return ['RB0', 'I0', 'CU0', 'M0', 'TA0']
+
+# Deprecated: These functions are now in futures_master.py
+# Keeping them here as wrappers if needed, but better to use futures_master directly in other modules.
+
 
 def search_symbols(query: str, market: str = "stock") -> List[Dict[str, str]]:
     """
