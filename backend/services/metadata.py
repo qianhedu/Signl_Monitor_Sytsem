@@ -98,6 +98,44 @@ def get_futures_list() -> List[Dict[str, str]]:
         results.append({"value": symbol, "label": label})
 
     # If cache is empty (json not found), fallback or just return empty
+    _FUTURES_CACHE = results
+    return results
+
+def get_symbol_name(symbol: str, market: str) -> str:
+    """
+    Get symbol name from metadata.
+    """
+    try:
+        data = []
+        if market == 'stock':
+            # Check HS300 first then full list
+            if _HS300_CACHE:
+                for item in _HS300_CACHE:
+                    if item['value'] == symbol:
+                        parts = item['label'].split(' ')
+                        return parts[1] if len(parts) > 1 else item['label']
+            
+            # If not in HS300 or cache empty, try full list
+            data = get_stock_list()
+        else:
+            data = get_futures_list()
+            
+        for item in data:
+            if item['value'] == symbol:
+                parts = item['label'].split(' ')
+                if len(parts) > 1:
+                    return parts[1]
+                return item['label']
+                
+        # If not found in cache and is stock, maybe try fetching single
+        if market == 'stock' and not data:
+             # Just return symbol if not found
+             pass
+             
+    except Exception as e:
+        print(f"Error getting symbol name: {e}")
+        
+    return symbol
     if not results:
         # Fallback to a few common ones if json is missing
         return [

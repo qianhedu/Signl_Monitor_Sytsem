@@ -54,7 +54,7 @@ interface BacktestResult {
 const form = reactive({
   symbols: [] as string[],
   market: 'futures',
-  period: '120',
+  period: '60',
   dateRange: [] as string[],
   initialCapital: 100000,
   lotSize: 20
@@ -140,7 +140,13 @@ const defaultHotSymbols = ref(['RB0', 'I0', 'CU0', 'M0', 'TA0'])
 const end = new Date()
 const start = new Date()
 start.setFullYear(start.getFullYear() - 1)
-form.dateRange = [start.toISOString(), end.toISOString()]
+
+const formatDate = (date: Date) => {
+  const pad = (n: number) => n < 10 ? '0' + n : n
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+}
+
+form.dateRange = [formatDate(start), formatDate(end)]
 
 // Load Hot Symbols from LocalStorage or Default
 const loadHotSymbols = async () => {
@@ -432,10 +438,10 @@ const initChart = (result: BacktestResult) => {
       axisPointer: { type: 'cross' }
     },
     legend: { data: ['K线', 'DKX', 'MADKX'] },
-    grid: { left: '5%', right: '5%', bottom: '15%' },
+    grid: { left: '3%', right: '3%', bottom: '30px', top: '40px', containLabel: true },
     xAxis: { type: 'category', data: dates, scale: true },
     yAxis: { scale: true, splitArea: { show: true } },
-    dataZoom: [{ type: 'inside', start: 0, end: 100 }, { show: true, type: 'slider', top: '90%' }],
+    dataZoom: [{ type: 'inside', start: 0, end: 100 }, { show: true, type: 'slider', top: '92%' }],
     series: [
       {
         name: 'K线',
@@ -443,10 +449,11 @@ const initChart = (result: BacktestResult) => {
         data: kLineData,
         markPoint: {
           data: markers,
-          symbolSize: 30, // Arrow size
+          symbolSize: 30, // Arrow size increased
           label: {
               show: true,
-              fontSize: 12
+              fontSize: 12,
+              fontWeight: 'bold'
           }
         }
       },
@@ -537,7 +544,7 @@ searchSymbols('')
                placeholder="输入代码搜索"
                :remote-method="searchSymbols"
                :loading="symbolLoading"
-               style="width: 250px"
+               style="width: 200px"
                collapse-tags
                collapse-tags-tooltip
              >
@@ -575,7 +582,6 @@ searchSymbols('')
             <el-option label="30分钟" value="30" />
             <el-option label="15分钟" value="15" />
             <el-option label="5分钟" value="5" />
-            <el-option label="1分钟" value="1" />
           </el-select>
         </el-form-item>
         
@@ -593,10 +599,10 @@ searchSymbols('')
             type="datetimerange"
             :shortcuts="shortcuts"
             range-separator="至"
-            start-placeholder="开始时间"
-            end-placeholder="结束时间"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
             value-format="YYYY-MM-DD HH:mm:ss"
-            style="width: 320px"
+            style="width: 350px"
           />
         </el-form-item>
         

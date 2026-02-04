@@ -7,6 +7,7 @@ import { nextTick } from 'vue'
 
 interface SignalResult {
   symbol: string
+  symbol_name: string
   date: string
   signal: string
   close: number
@@ -15,12 +16,55 @@ interface SignalResult {
   details: any
 }
 
-const form = reactive({
+import { Delete } from '@element-plus/icons-vue'
+
+  const form = reactive({
   symbols: ['600519', '000001'],
-  market: 'stock',
-  period: 'daily',
-  lookback: 5
+  market: 'futures',
+  period: '60',
+  lookback: 0,
+  dateRange: [] as string[]
 })
+
+// Date shortcuts
+const shortcuts = [
+  {
+    text: '近1个月',
+    value: () => {
+      const end = new Date()
+      const start = new Date()
+      start.setMonth(start.getMonth() - 1)
+      return [start, end]
+    },
+  },
+  {
+    text: '近3个月',
+    value: () => {
+      const end = new Date()
+      const start = new Date()
+      start.setMonth(start.getMonth() - 3)
+      return [start, end]
+    },
+  },
+  {
+    text: '近6个月',
+    value: () => {
+      const end = new Date()
+      const start = new Date()
+      start.setMonth(start.getMonth() - 6)
+      return [start, end]
+    },
+  },
+  {
+    text: '近1年',
+    value: () => {
+      const end = new Date()
+      const start = new Date()
+      start.setFullYear(start.getFullYear() - 1)
+      return [start, end]
+    },
+  },
+]
 
 const loading = ref(false)
 const symbolOptions = ref<{value: string, label: string}[]>([])
@@ -77,9 +121,81 @@ const addBatch = async (type: 'hs300' | 'all_futures') => {
   }
 }
 
+// Hot Symbols Default (will be fetched from backend)
+const defaultHotSymbols = ref(['RB0', 'I0', 'CU0', 'M0', 'TA0'])
+
+// Initialize date range (last 1 year)
+const end = new Date()
+const start = new Date()
+start.setFullYear(start.getFullYear() - 1)
+
+// Format date to local string YYYY-MM-DD HH:mm:ss
+const formatDate = (date: Date) => {
+  const pad = (n: number) => n < 10 ? '0' + n : n
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+}
+
+form.dateRange = [formatDate(start), formatDate(end)]
+
+// Load Hot Symbols from LocalStorage or Default
+const loadHotSymbols = async () => {
+  // First try to fetch default from backend to ensure it's up to date
+  try {
+      const res = await axios.get('/api/symbols/hot')
+      if (res.data && Array.isArray(res.data)) {
+          defaultHotSymbols.value = res.data
+      }
+  } catch (e) {
+      console.error('Failed to fetch hot symbols', e)
+  }
+
+  const saved = localStorage.getItem('userHotSymbols')
+  if (saved) {
+    try {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+            form.symbols = parsed
+        }
+    } catch (e) {
+        console.error('Error parsing hot symbols', e)
+        form.symbols = [...defaultHotSymbols.value]
+    }
+  } else {
+    // First time entry or restore default
+    form.symbols = [...defaultHotSymbols.value]
+  }
+}
+
+// Call on init
+loadHotSymbols()
+
+const saveHotSymbols = () => {
+    if (form.symbols.length > 0) {
+        localStorage.setItem('userHotSymbols', JSON.stringify(form.symbols))
+        ElMessage.success('当前选择已保存为默认')
+    }
+}
+
+const restoreDefaultHotSymbols = () => {
+    form.symbols = [...defaultHotSymbols.value]
+    localStorage.removeItem('userHotSymbols')
+    ElMessage.success('已恢复默认热门品种')
+}
+
+const clearSymbols = () => {
+    form.symbols = []
+    results.value = []
+    currentSymbol.value = ''
+    ElMessage.info('已清空标的代码')
+}
+
 const detect = async () => {
   if (!form.symbols || form.symbols.length === 0) {
     ElMessage.warning('请选择标的')
+    return
+  }
+  if (!form.dateRange || form.dateRange.length !== 2) {
+    ElMessage.warning('请选择时间范围')
     return
   }
 
@@ -89,7 +205,9 @@ const detect = async () => {
       symbols: form.symbols,
       market: form.market,
       period: form.period,
-      lookback: form.lookback
+      lookback: form.lookback,
+      start_time: form.dateRange && form.dateRange.length === 2 ? form.dateRange[0] : null,
+      end_time: form.dateRange && form.dateRange.length === 2 ? form.dateRange[1] : null
     })
     results.value = response.data.results
     if (results.value.length === 0) {
@@ -109,10 +227,10 @@ const showChart = async (row: SignalResult) => {
   chartDialogVisible.value = true
   
   await nextTick()
-  initChart(row.details.chart_data)
+  initChart(row.details.chart_data, row.details.chart_signals || [])
 }
 
-const initChart = (data: any[]) => {
+const initChart = (data: any[], signals: any[]) => {
   const chartDom = document.getElementById('chart-container')
   if (!chartDom) return
   
@@ -122,23 +240,45 @@ const initChart = (data: any[]) => {
   const kLineData = data.map(item => [item.open, item.close, item.low, item.high])
   const dkxData = data.map(item => item.dkx)
   const madkxData = data.map(item => item.madkx)
+
+  // Find symbol label from options if available
+  const symbolLabel = symbolOptions.value.find(o => o.value === currentSymbol.value)?.label || currentSymbol.value
+  
+  const markPoints = signals.map(sig => ({
+    name: `${sig.signal === 'BUY' ? 'DKX金叉' : 'DKX死叉'} @ ${sig.date}`,
+    value: sig.signal === 'BUY' ? '买' : '卖',
+    coord: [sig.date, sig.price],
+    symbol: 'pin',
+    symbolSize: 50, // Increased size
+    itemStyle: {
+      color: sig.signal === 'BUY' ? '#ef5350' : '#26a69a'
+    }
+  }))
   
   const option = {
-    title: { text: `DKX 图表 - ${currentSymbol.value}` },
+    title: { text: `${symbolLabel} (${currentSymbol.value}) - DKX` },
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'cross' }
     },
     legend: { data: ['K线', 'DKX', 'MADKX'] },
-    grid: { left: '10%', right: '10%', bottom: '15%' },
+    grid: { left: '3%', right: '3%', bottom: '30px', top: '40px', containLabel: true },
     xAxis: { type: 'category', data: dates, scale: true },
     yAxis: { scale: true, splitArea: { show: true } },
-    dataZoom: [{ type: 'inside', start: 50, end: 100 }, { show: true, type: 'slider', top: '90%' }],
+    dataZoom: [{ type: 'inside', start: 80, end: 100 }, { show: true, type: 'slider', top: '92%' }],
     series: [
       {
         name: 'K线',
         type: 'candlestick',
-        data: kLineData
+        data: kLineData,
+        markPoint: {
+          data: markPoints,
+          symbolSize: 50, // Increased size
+          label: {
+              fontSize: 14,
+              fontWeight: 'bold'
+          }
+        }
       },
       {
         name: 'DKX',
@@ -202,7 +342,7 @@ searchSymbols('')
                placeholder="输入代码搜索"
                :remote-method="searchSymbols"
                :loading="symbolLoading"
-               style="width: 300px"
+               style="width: 200px"
                collapse-tags
                collapse-tags-tooltip
              >
@@ -213,15 +353,28 @@ searchSymbols('')
                  :value="item.value"
                />
              </el-select>
-             <el-button v-if="form.market === 'stock'" size="small" @click="addBatch('hs300')">添加沪深300</el-button>
-             <el-button v-if="form.market === 'futures'" size="small" @click="addBatch('all_futures')">添加所有期货</el-button>
+             <el-button type="danger" :icon="Delete" circle @click="clearSymbols" title="清空" size="small"></el-button>
+             <el-dropdown split-button type="primary" size="small" @click="saveHotSymbols" title="保存当前为热门">
+                保存
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item @click="restoreDefaultHotSymbols">恢复默认</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+             </el-dropdown>
+             <el-button v-if="form.market === 'stock'" size="small" @click="addBatch('hs300')">沪深300</el-button>
+             <el-button v-if="form.market === 'futures'" size="small" @click="addBatch('all_futures')">所有期货</el-button>
            </div>
         </el-form-item>
         <el-form-item label="周期">
-          <el-select v-model="form.period" placeholder="选择周期" style="width: 120px">
+          <el-select v-model="form.period" placeholder="选择周期" style="width: 100px">
             <el-option label="日线" value="daily" />
             <el-option label="周线" value="weekly" />
             <el-option label="月线" value="monthly" />
+            <el-option label="240分钟" value="240" />
+            <el-option label="180分钟" value="180" />
+            <el-option label="120分钟" value="120" />
+            <el-option label="90分钟" value="90" />
             <el-option label="60分钟" value="60" />
             <el-option label="30分钟" value="30" />
             <el-option label="15分钟" value="15" />
@@ -229,7 +382,19 @@ searchSymbols('')
           </el-select>
         </el-form-item>
         <el-form-item label="回溯K线数">
-          <el-input-number v-model="form.lookback" :min="1" :max="20" style="width: 120px" />
+          <el-input-number v-model="form.lookback" :min="0" :max="200" style="width: 120px" />
+        </el-form-item>
+        <el-form-item label="时间范围">
+          <el-date-picker
+            v-model="form.dateRange"
+            type="datetimerange"
+            :shortcuts="shortcuts"
+            range-separator="至"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            value-format="YYYY-MM-DD HH:mm:ss"
+            style="width: 350px"
+          />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="detect" :loading="loading">开始检测</el-button>
@@ -245,9 +410,10 @@ searchSymbols('')
         </div>
       </template>
       <el-table :data="results" style="width: 100%" v-loading="loading">
-        <el-table-column prop="symbol" label="标的" width="120" />
-        <el-table-column prop="date" label="信号日期" width="120" />
-        <el-table-column prop="signal" label="信号" width="100">
+        <el-table-column prop="symbol" label="标的"/>
+        <el-table-column prop="symbol_name" label="名称"/>
+        <el-table-column prop="date" label="信号日期"/>
+        <el-table-column prop="signal" label="信号">
           <template #default="scope">
             <el-tag :type="scope.row.signal === 'BUY' ? 'danger' : 'success'">
               {{ scope.row.signal === 'BUY' ? '买入' : '卖出' }}
@@ -265,8 +431,8 @@ searchSymbols('')
       </el-table>
     </el-card>
 
-    <el-dialog v-model="chartDialogVisible" title="信号图表" width="80%">
-      <div id="chart-container" style="width: 100%; height: 400px;"></div>
+    <el-dialog v-model="chartDialogVisible" title="信号图表" width="90%">
+      <div id="chart-container" style="width: 100%; height: 800px;"></div>
     </el-dialog>
   </div>
 </template>

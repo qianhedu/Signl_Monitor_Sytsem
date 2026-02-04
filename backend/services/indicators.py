@@ -1,6 +1,7 @@
 import akshare as ak
 import pandas as pd
 import numpy as np
+from typing import List, Optional
 
 def get_market_data(symbol: str, market: str = "stock", period: str = "daily", adjust: str = "qfq") -> pd.DataFrame:
     """
@@ -16,10 +17,18 @@ def get_market_data(symbol: str, market: str = "stock", period: str = "daily", a
         # Futures Minutes: period="60"
         # Stock Daily: period="daily"
         
-        is_minute = period in ["60", "30", "15", "5", "1"]
+        is_minute = period in ["240", "180", "120", "90", "60", "30", "15", "5", "1"]
 
         if market == "stock":
             if is_minute:
+                # Map long periods to base periods for resampling
+                base_period = period
+                need_resample = False
+                
+                if period in ["240", "180", "120", "90"]:
+                    base_period = "60" # Use 60m as base for better performance than 1m
+                    need_resample = True
+                
                 # 使用新浪接口获取分钟数据 (东方财富接口可能不稳定)
                 # 代码需要前缀: 600519 -> sh600519, 000001 -> sz000001
                 prefix = ""
@@ -31,7 +40,7 @@ def get_market_data(symbol: str, market: str = "stock", period: str = "daily", a
                     prefix = "bj" 
                 
                 sina_symbol = f"{prefix}{symbol}"
-                df = ak.stock_zh_a_minute(symbol=sina_symbol, period=period)
+                df = ak.stock_zh_a_minute(symbol=sina_symbol, period=base_period)
                 if not df.empty:
                     df = df.rename(columns={
                         "day": "date",
@@ -41,6 +50,101 @@ def get_market_data(symbol: str, market: str = "stock", period: str = "daily", a
                         "close": "close",
                         "volume": "volume"
                     })
+                    
+                    if need_resample:
+                        df['date'] = pd.to_datetime(df['date'])
+                        df.set_index('date', inplace=True)
+                        
+                        # Custom resampling for stocks to match THS logic
+                        # THS Logic for A-shares (09:30-11:30, 13:00-15:00):
+                        # 120m: [09:30-11:30], [13:00-15:00] (2 bars/day)
+                        # 240m: [09:30-15:00] (1 bar/day)
+                        # 90m: Not standard, but usually splits available time.
+                        # We use a mapping approach based on time.
+                        
+                        def get_period_end_time(ts, period_min):
+                            # Convert time to minutes from 09:30
+                            # Morning: 09:30 (0) to 11:30 (120)
+                            # Afternoon: 13:00 (120 virtual) to 15:00 (240 virtual)
+                            
+                            hm = ts.hour * 60 + ts.minute
+                            
+                            # Normalize time to "trading minutes from 9:30"
+                            # 9:30 = 570m
+                            # 11:30 = 690m
+                            # 13:00 = 780m
+                            # 15:00 = 900m
+                            
+                            minutes_from_open = 0
+                            if 570 < hm <= 690: # Morning
+                                minutes_from_open = hm - 570
+                            elif 780 < hm <= 900: # Afternoon
+                                minutes_from_open = 120 + (hm - 780)
+                            else:
+                                # Out of bounds or exact open (shouldn't happen with closed='right')
+                                return ts
+                            
+                            # Determine bin
+                            # period_min e.g. 120
+                            # bin_index = ceil(minutes_from_open / period_min)
+                            import math
+                            bin_idx = math.ceil(minutes_from_open / int(period_min))
+                            
+                            # Bin end in trading minutes
+                            bin_end_trading_min = bin_idx * int(period_min)
+                            
+                            # Convert back to wall clock time
+                            # If bin_end <= 120: Morning
+                            # If bin_end > 120: Afternoon
+                            
+                            final_hm = 0
+                            if bin_end_trading_min <= 120:
+                                final_hm = 570 + bin_end_trading_min
+                            else:
+                                final_hm = 780 + (bin_end_trading_min - 120)
+                                
+                            # Construct new timestamp
+                            new_h = final_hm // 60
+                            new_m = final_hm % 60
+                            
+                            return ts.replace(hour=new_h, minute=new_m, second=0)
+
+                        # Apply mapping
+                        # Note: Vectorizing this would be faster, but apply is easier for logic
+                        # Only apply to rows.
+                        
+                        # Optimization: Create a map for unique times
+                        unique_times = pd.Series(df.index.time).unique()
+                        time_map = {}
+                        for t in unique_times:
+                            # Create a dummy datetime to use the function
+                            dummy_dt = pd.Timestamp(year=2000, month=1, day=1, hour=t.hour, minute=t.minute)
+                            mapped_dt = get_period_end_time(dummy_dt, period)
+                            time_map[t] = mapped_dt.time()
+                            
+                        # Assign new time
+                        # We need to preserve the Date part
+                        
+                        new_dates = []
+                        for idx in df.index:
+                            t = idx.time()
+                            mapped_time = time_map.get(t, t)
+                            new_dates.append(idx.replace(hour=mapped_time.hour, minute=mapped_time.minute))
+                            
+                        df['resample_date'] = new_dates
+                        
+                        # Group by resample_date
+                        ohlc_dict = {
+                            'open': 'first',
+                            'high': 'max',
+                            'low': 'min',
+                            'close': 'last',
+                            'volume': 'sum'
+                        }
+                        
+                        df_res = df.groupby('resample_date').agg(ohlc_dict).dropna()
+                        df_res.index.name = 'date'
+                        df = df_res.reset_index()
             else:
                 # stock_zh_a_hist 支持日/周/月
                 try:
@@ -81,37 +185,114 @@ def get_market_data(symbol: str, market: str = "stock", period: str = "daily", a
                     })
                 
         elif market == "futures":
-            if is_minute:
+            if period in ["240", "180", "120", "90"]:
+                # Custom resampling for futures long intraday
+                base_period = "60"
+                multiplier = 1
+                if period == "120": multiplier = 2
+                elif period == "180": multiplier = 3
+                elif period == "240": multiplier = 4
+                elif period == "90": 
+                    base_period = "30"
+                    multiplier = 3
+                
+                try:
+                    df = ak.futures_zh_minute_sina(symbol=symbol, period=base_period)
+                    if not df.empty:
+                        df = df.rename(columns={
+                            "datetime": "date",
+                            "open": "open",
+                            "high": "high",
+                            "low": "low",
+                            "close": "close",
+                            "volume": "volume",
+                            "hold": "hold"
+                        })
+                        
+                        # Resample using row-based aggregation (simplest approximation for continuous contracts)
+                        df['date'] = pd.to_datetime(df['date'])
+                        df.sort_values('date', inplace=True)
+                        df.reset_index(drop=True, inplace=True)
+                        
+                        agg_dict = {
+                            'date': 'last',
+                            'open': 'first',
+                            'high': 'max',
+                            'low': 'min',
+                            'close': 'last',
+                            'volume': 'sum'
+                        }
+                        if 'hold' in df.columns:
+                            agg_dict['hold'] = 'last'
+                            
+                        # Group every N rows
+                        group_key = df.index // multiplier
+                        df = df.groupby(group_key).agg(agg_dict)
+                        df.reset_index(drop=True, inplace=True)
+                except Exception as e:
+                    print(f"Error fetching/resampling futures data for {symbol} {period}: {e}")
+                    df = pd.DataFrame()
+
+            elif is_minute:
                 # 期货分钟数据
-                df = ak.futures_zh_minute_sina(symbol=symbol, period=period)
-                if not df.empty:
-                    df = df.rename(columns={
-                        "datetime": "date",
-                        "open": "open",
-                        "high": "high",
-                        "low": "low",
-                        "close": "close",
-                        "volume": "volume",
-                        "hold": "hold"
-                    })
+                try:
+                    df = ak.futures_zh_minute_sina(symbol=symbol, period=period)
+                    if not df.empty:
+                        df = df.rename(columns={
+                            "datetime": "date",
+                            "open": "open",
+                            "high": "high",
+                            "low": "low",
+                            "close": "close",
+                            "volume": "volume",
+                            "hold": "hold"
+                        })
+                except Exception as e:
+                    print(f"Error fetching futures minute data: {e}")
+                    df = pd.DataFrame()
             else:
                 # 期货日线数据 (futures_zh_daily_sina)
-                if period != "daily":
-                    # TODO: 若需要周线/月线，需在此处处理重采样
-                    pass
-                
-                df = ak.futures_zh_daily_sina(symbol=symbol)
-                if not df.empty:
-                    df = df.rename(columns={
-                        "date": "date",
-                        "日期": "date",
-                        "open": "open", "开盘价": "open",
-                        "high": "high", "最高价": "high",
-                        "low": "low", "最低价": "low",
-                        "close": "close", "收盘价": "close",
-                        "volume": "volume", "成交量": "volume",
-                        "hold": "hold", "持仓量": "hold"
-                    })
+                try:
+                    df = ak.futures_zh_daily_sina(symbol=symbol)
+                    if not df.empty:
+                        df = df.rename(columns={
+                            "date": "date",
+                            "日期": "date",
+                            "open": "open", "开盘价": "open",
+                            "high": "high", "最高价": "high",
+                            "low": "low", "最低价": "low",
+                            "close": "close", "收盘价": "close",
+                            "volume": "volume", "成交量": "volume",
+                            "hold": "hold", "持仓量": "hold"
+                        })
+                        
+                        df['date'] = pd.to_datetime(df['date'])
+                        
+                        if period == "weekly":
+                            df.set_index('date', inplace=True)
+                            agg_dict = {
+                                'open': 'first',
+                                'high': 'max',
+                                'low': 'min',
+                                'close': 'last',
+                                'volume': 'sum'
+                            }
+                            if 'hold' in df.columns: agg_dict['hold'] = 'last'
+                            df = df.resample('W').agg(agg_dict).dropna().reset_index()
+                        elif period == "monthly":
+                            df.set_index('date', inplace=True)
+                            agg_dict = {
+                                'open': 'first',
+                                'high': 'max',
+                                'low': 'min',
+                                'close': 'last',
+                                'volume': 'sum'
+                            }
+                            if 'hold' in df.columns: agg_dict['hold'] = 'last'
+                            df = df.resample('ME').agg(agg_dict).dropna().reset_index()
+                except Exception as e:
+                    print(f"Error fetching futures daily data: {e}")
+                    df = pd.DataFrame()
         
         if df.empty:
             return pd.DataFrame()
@@ -119,6 +300,8 @@ def get_market_data(symbol: str, market: str = "stock", period: str = "daily", a
         # 确保 date 列为 datetime 类型
         df['date'] = pd.to_datetime(df['date'])
         df.set_index('date', inplace=True)
+        # Ensure index is sorted for reliable slicing
+        df.sort_index(inplace=True)
         
         # 确保数值列类型正确
         cols = ['open', 'close', 'high', 'low']
@@ -186,25 +369,103 @@ def calculate_dkx(df: pd.DataFrame) -> pd.DataFrame:
     
     return df
 
-def check_dkx_signal(df: pd.DataFrame, lookback: int = 5) -> dict:
+def check_dkx_signal(df: pd.DataFrame, lookback: int = 5, start_time: Optional[str] = None, end_time: Optional[str] = None) -> List[dict]:
     """
     Check for Golden Cross (DKX crosses above MADKX) or Dead Cross.
-    Returns the latest signal within lookback period.
+    Returns list of signals within lookback period or specified time range.
     """
     if 'dkx' not in df.columns or df['dkx'].isnull().all():
-        return None
+        return []
 
-    # Get last N rows
-    subset = df.iloc[-lookback-1:] 
+    subset = pd.DataFrame()
+    start_idx = 0
+
+    if start_time and end_time:
+        # Filter by time range, but ensure we have 1 extra row before for crossover check
+        # Use label-based slicing which is more robust than direct comparison
+        try:
+            # Ensure index is datetime type
+            if not isinstance(df.index, pd.DatetimeIndex):
+                df.index = pd.to_datetime(df.index)
+            
+            # Sort index to ensure slicing works
+            df.sort_index(inplace=True)
+            
+            # 1. Align Timezones for filtering
+            ts_start = pd.to_datetime(start_time)
+            ts_end = pd.to_datetime(end_time)
+            
+            index_tz = df.index.tz
+            if index_tz is None:
+                if ts_start.tzinfo is not None:
+                    ts_start = ts_start.tz_localize(None)
+                    ts_end = ts_end.tz_localize(None)
+            else:
+                if ts_start.tzinfo is None:
+                    ts_start = ts_start.tz_localize(index_tz)
+                    ts_end = ts_end.tz_localize(index_tz)
+                else:
+                    ts_start = ts_start.tz_convert(index_tz)
+                    ts_end = ts_end.tz_convert(index_tz)
+            
+            # 2. Find subset using boolean mask (more robust than loc slicing for mixed types)
+            mask = (df.index >= ts_start) & (df.index <= ts_end)
+            # We need to find the range indices to extend backwards by 1
+            # So we can't just return df[mask] because we need the previous row
+            
+            # Find the integer indices of the mask
+            # valid_indices = np.where(mask)[0]
+            # if len(valid_indices) == 0: return []
+            # start_idx = max(0, valid_indices[0] - 1)
+            # end_idx = valid_indices[-1] + 1
+            # subset = df.iloc[start_idx:end_idx]
+            
+            # Let's stick to the previous logic but use robust finding
+            temp_subset = df.loc[mask]
+            
+            if temp_subset.empty:
+                return []
+                
+            first_date = temp_subset.index[0]
+            last_date = temp_subset.index[-1]
+            
+            # Find integer locations
+            loc_start = df.index.get_loc(first_date)
+            if isinstance(loc_start, slice): loc_start = loc_start.start
+            
+            loc_end = df.index.get_loc(last_date)
+            if isinstance(loc_end, slice): loc_end = loc_end.stop - 1 # get_loc slice stop is exclusive? No, get_loc returns slice of matches.
+            # If unique index, get_loc returns int.
+            
+            start_slice = max(0, loc_start - 1)
+            # For end_slice, we want to include the last matching element.
+            # iloc slice end is exclusive. So we need loc_end + 1.
+            if isinstance(loc_end, slice):
+                 # If slice, stop is exclusive, so it points to next.
+                 end_slice = loc_end.stop
+            else:
+                 end_slice = loc_end + 1
+                
+            subset = df.iloc[start_slice:end_slice]
+            
+        except Exception as e:
+            print(f"Error in check_dkx_signal time filtering: {e}")
+            return []
+        
+    else:
+        # Use lookback
+        # Handle negative lookback by taking absolute value
+        lb = abs(lookback)
+        if lb == 0:
+            # If lookback is 0, check the entire available history
+            subset = df
+        else:
+            subset = df.iloc[-lb-1:]
     
     if len(subset) < 2:
-        return None
+        return []
 
-    last_signal = "NONE"
-    signal_date = None
-    price = 0.0
-    dkx_val = 0.0
-    madkx_val = 0.0
+    signals = []
 
     # Iterate to find crossover
     # We check if relationship changed from previous day to current day
@@ -212,32 +473,44 @@ def check_dkx_signal(df: pd.DataFrame, lookback: int = 5) -> dict:
         prev = subset.iloc[i-1]
         curr = subset.iloc[i]
         
+        # Calculate offset
+        try:
+            # Use get_loc on the original df to find the absolute position
+            curr_idx = df.index.get_loc(curr.name)
+            if isinstance(curr_idx, slice): 
+                # If slice (duplicate index), take the last one
+                curr_idx = curr_idx.stop - 1
+            offset = len(df) - 1 - curr_idx
+        except:
+            offset = None
+        
         # Golden Cross: Prev DKX < Prev MADKX AND Curr DKX > Curr MADKX
         if prev['dkx'] < prev['madkx'] and curr['dkx'] > curr['madkx']:
-            last_signal = "BUY"
-            signal_date = curr.name.strftime("%Y-%m-%d")
-            price = curr['close']
-            dkx_val = curr['dkx']
-            madkx_val = curr['madkx']
+            signals.append({
+                "signal": "BUY",
+                "date": curr.name.strftime("%Y-%m-%d %H:%M:%S"),
+                "price": curr['close'],
+                "dkx": curr['dkx'],
+                "madkx": curr['madkx'],
+                "offset": offset
+            })
         
         # Dead Cross: Prev DKX > Prev MADKX AND Curr DKX < Curr MADKX
         elif prev['dkx'] > prev['madkx'] and curr['dkx'] < curr['madkx']:
-            last_signal = "SELL"
-            signal_date = curr.name.strftime("%Y-%m-%d")
-            price = curr['close']
-            dkx_val = curr['dkx']
-            madkx_val = curr['madkx']
+             signals.append({
+                "signal": "SELL",
+                "date": curr.name.strftime("%Y-%m-%d %H:%M:%S"),
+                "price": curr['close'],
+                "dkx": curr['dkx'],
+                "madkx": curr['madkx'],
+                "offset": offset
+            })
             
-    if last_signal != "NONE":
-        return {
-            "signal": last_signal,
-            "date": signal_date,
-            "price": price,
-            "dkx": dkx_val,
-            "madkx": madkx_val
-        }
-    
-    return None
+    # If lookback is 0 and no time range specified, we only return the latest signal
+    # REVISED: We return ALL signals here. Filtering for "latest only" when lookback=0 
+    # should be done in the caller (API handler) if desired, so that chart generation 
+    # (which also uses lookback=0) can still get all signals.
+    return signals
 
 def calculate_ma(df: pd.DataFrame, short_period: int = 5, long_period: int = 10) -> pd.DataFrame:
     """
@@ -251,50 +524,121 @@ def calculate_ma(df: pd.DataFrame, short_period: int = 5, long_period: int = 10)
     
     return df
 
-def check_ma_signal(df: pd.DataFrame, lookback: int = 5) -> dict:
+def check_ma_signal(df: pd.DataFrame, lookback: int = 5, start_time: Optional[str] = None, end_time: Optional[str] = None) -> List[dict]:
     """
     Check for MA Golden Cross / Dead Cross.
     """
     if 'ma_short' not in df.columns or df['ma_short'].isnull().all():
-        return None
+        return []
 
-    subset = df.iloc[-lookback-1:] 
+    subset = pd.DataFrame()
+    
+    if start_time and end_time:
+         # Filter by time range, but ensure we have 1 extra row before for crossover check
+        try:
+            # Ensure index is datetime type
+            if not isinstance(df.index, pd.DatetimeIndex):
+                df.index = pd.to_datetime(df.index)
+            
+            # Sort index to ensure slicing works
+            df.sort_index(inplace=True)
+
+            # 1. Align Timezones for filtering
+            ts_start = pd.to_datetime(start_time)
+            ts_end = pd.to_datetime(end_time)
+            
+            index_tz = df.index.tz
+            if index_tz is None:
+                if ts_start.tzinfo is not None:
+                    ts_start = ts_start.tz_localize(None)
+                    ts_end = ts_end.tz_localize(None)
+            else:
+                if ts_start.tzinfo is None:
+                    ts_start = ts_start.tz_localize(index_tz)
+                    ts_end = ts_end.tz_localize(index_tz)
+                else:
+                    ts_start = ts_start.tz_convert(index_tz)
+                    ts_end = ts_end.tz_convert(index_tz)
+            
+            # 2. Find subset using boolean mask (more robust than loc slicing for mixed types)
+            mask = (df.index >= ts_start) & (df.index <= ts_end)
+            
+            # Let's stick to the previous logic but use robust finding
+            temp_subset = df.loc[mask]
+
+            if temp_subset.empty:
+                return []
+            
+            first_date = temp_subset.index[0]
+            last_date = temp_subset.index[-1]
+            
+            # Find integer locations
+            loc_start = df.index.get_loc(first_date)
+            if isinstance(loc_start, slice): loc_start = loc_start.start
+            
+            loc_end = df.index.get_loc(last_date)
+            if isinstance(loc_end, slice): loc_end = loc_end.stop - 1 
+            
+            start_slice = max(0, loc_start - 1)
+            
+            if isinstance(loc_end, slice):
+                 end_slice = loc_end.stop
+            else:
+                 end_slice = loc_end + 1
+                
+            subset = df.iloc[start_slice:end_slice]
+        except Exception as e:
+            print(f"Error in check_ma_signal time filtering: {e}")
+            return []
+    else:
+        # Handle negative lookback
+        lb = abs(lookback)
+        if lb == 0:
+            subset = df
+        else:
+            # Ensure at least 1 row + 1 prev row
+            lb = max(1, lb)
+            subset = df.iloc[-lb-1:]  
+        
     if len(subset) < 2:
-        return None
+        return []
 
-    last_signal = "NONE"
-    signal_date = None
-    price = 0.0
-    ma_short_val = 0.0
-    ma_long_val = 0.0
+    signals = []
 
     for i in range(1, len(subset)):
         prev = subset.iloc[i-1]
         curr = subset.iloc[i]
         
+        # Calculate offset
+        try:
+            curr_idx = df.index.get_loc(curr.name)
+            if isinstance(curr_idx, slice): 
+                curr_idx = curr_idx.stop - 1
+            offset = len(df) - 1 - curr_idx
+        except:
+            offset = None
+        
         # Golden Cross: Prev Short < Prev Long AND Curr Short > Curr Long
         if prev['ma_short'] < prev['ma_long'] and curr['ma_short'] > curr['ma_long']:
-            last_signal = "BUY"
-            signal_date = curr.name.strftime("%Y-%m-%d")
-            price = curr['close']
-            ma_short_val = curr['ma_short']
-            ma_long_val = curr['ma_long']
+             signals.append({
+                "signal": "BUY",
+                "date": curr.name.strftime("%Y-%m-%d %H:%M:%S"),
+                "price": curr['close'],
+                "ma_short": curr['ma_short'],
+                "ma_long": curr['ma_long'],
+                "offset": offset
+            })
         
         # Dead Cross
         elif prev['ma_short'] > prev['ma_long'] and curr['ma_short'] < curr['ma_long']:
-            last_signal = "SELL"
-            signal_date = curr.name.strftime("%Y-%m-%d")
-            price = curr['close']
-            ma_short_val = curr['ma_short']
-            ma_long_val = curr['ma_long']
+            signals.append({
+                "signal": "SELL",
+                "date": curr.name.strftime("%Y-%m-%d %H:%M:%S"),
+                "price": curr['close'],
+                "ma_short": curr['ma_short'],
+                "ma_long": curr['ma_long'],
+                "offset": offset
+            })
             
-    if last_signal != "NONE":
-        return {
-            "signal": last_signal,
-            "date": signal_date,
-            "price": price,
-            "ma_short": ma_short_val,
-            "ma_long": ma_long_val
-        }
-    
-    return None
+    # REVISED: Return all signals. Filtering is done in caller.
+    return signals

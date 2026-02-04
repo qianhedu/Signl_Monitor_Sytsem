@@ -272,14 +272,44 @@ def run_backtest_dkx(
             
         # Filter by time range
         try:
-            start_dt = pd.to_datetime(start_time).tz_localize(None)
-            end_dt = pd.to_datetime(end_time).tz_localize(None)
+            # 确保 index 为 datetime 类型并排序
+            if not isinstance(df.index, pd.DatetimeIndex):
+                df.index = pd.to_datetime(df.index)
+            df.sort_index(inplace=True)
             
-            if df.index.tz is not None:
-                df.index = df.index.tz_localize(None)
-                
-            mask = (df.index >= start_dt) & (df.index <= end_dt)
-            df = df.loc[mask].copy()
+            # 使用 loc 进行切片，避免 dtype 比较错误
+            if start_time and end_time:
+                try:
+                    # 1. 统一转换为 Timestamp
+                    ts_start = pd.to_datetime(start_time)
+                    ts_end = pd.to_datetime(end_time)
+                    
+                    # 2. 检查 DataFrame 索引的时区属性
+                    index_tz = df.index.tz
+                    
+                    # 3. 对齐查询时间的时区
+                    if index_tz is None:
+                        # 如果索引是 naive (无时区)，则将查询时间也转换为 naive
+                        if ts_start.tzinfo is not None:
+                            # 移除时区信息，使之变为 naive datetime，以便与索引比较
+                            ts_start = ts_start.tz_localize(None)
+                            ts_end = ts_end.tz_localize(None)
+                    else:
+                        # 如果索引是 aware (有时区)，则将查询时间转换为对应时区
+                        if ts_start.tzinfo is None:
+                            ts_start = ts_start.tz_localize(index_tz)
+                            ts_end = ts_end.tz_localize(index_tz)
+                        else:
+                            ts_start = ts_start.tz_convert(index_tz)
+                            ts_end = ts_end.tz_convert(index_tz)
+                            
+                    # 4. 使用布尔索引过滤 (比 loc 切片更健壮)
+                    mask = (df.index >= ts_start) & (df.index <= ts_end)
+                    df = df.loc[mask].copy()
+                    
+                except Exception as filter_err:
+                    print(f"Time filter error for {symbol}: {filter_err}")
+                    df = pd.DataFrame()
         except Exception as e:
             print(f"Time filter error for {symbol}: {e}")
             continue
@@ -573,13 +603,27 @@ def run_backtest_dkx(
         
         total_return = (equities[-1] - initial_capital) / initial_capital
         
-        # Sharpe Ratio (Daily) - Simplified
-        # Need daily returns
-        returns = pd.Series(equities).pct_change().dropna()
-        if len(returns) > 0 and returns.std() != 0:
-            sharpe = (returns.mean() / returns.std()) * np.sqrt(252) # Assuming daily
-        else:
-            sharpe = 0
+        # Sharpe Ratio (Daily) - Robust
+        # Resample equity curve to daily to ensure correct annualization
+        sharpe = 0
+        if equity_curve:
+            eq_df_s = pd.DataFrame(equity_curve)
+            eq_df_s['date'] = pd.to_datetime(eq_df_s['date'])
+            eq_df_s.set_index('date', inplace=True)
+            # Resample to Daily Close
+            daily_eq_s = eq_df_s['equity'].resample('D').last().dropna()
+            
+            if len(daily_eq_s) > 1:
+                daily_returns = daily_eq_s.pct_change().dropna()
+                if len(daily_returns) > 0 and daily_returns.std() != 0:
+                    sharpe = (daily_returns.mean() / daily_returns.std()) * np.sqrt(252)
+
+        # Legacy calculation (commented out)
+        # returns = pd.Series(equities).pct_change().dropna()
+        # if len(returns) > 0 and returns.std() != 0:
+        #    sharpe = (returns.mean() / returns.std()) * np.sqrt(252) # Assuming daily
+        # else:
+        #    sharpe = 0
             
         # Win Rate (based on closed trades with profit > 0)
         closed_trades = [t for t in trades if t['direction'] in ['平多', '平空']]

@@ -14,14 +14,14 @@ try:
     from models import DetectionRequest, MaDetectionRequest, DetectionResponse, SignalResult
     from services.indicators import get_market_data, calculate_dkx, check_dkx_signal, calculate_ma, check_ma_signal
     from services.db import init_db, save_signal, get_history
-    from services.metadata import search_symbols
+    from services.metadata import search_symbols, get_symbol_name
     from routers import backtest, symbols
 except ImportError:
     # Try absolute import if running from root
     from backend.models import DetectionRequest, MaDetectionRequest, DetectionResponse, SignalResult
     from backend.services.indicators import get_market_data, calculate_dkx, check_dkx_signal, calculate_ma, check_ma_signal
     from backend.services.db import init_db, save_signal, get_history
-    from backend.services.metadata import search_symbols
+    from backend.services.metadata import search_symbols, get_symbol_name
     from backend.routers import backtest, symbols
 
 @asynccontextmanager
@@ -47,6 +47,11 @@ app.include_router(symbols.router, prefix="/api/symbols", tags=["symbols"])
 def read_root():
     return {"message": "Signal Monitor System API is running"}
 
+def format_date(dt):
+    if isinstance(dt, pd.Timestamp) and dt.tzinfo is not None:
+        dt = dt.tz_convert('Asia/Shanghai')
+    return dt.strftime("%Y-%m-%d %H:%M:%S")
+
 @app.post("/api/detect/dkx", response_model=DetectionResponse)
 async def detect_dkx(request: DetectionRequest):
     results = []
@@ -63,27 +68,108 @@ async def detect_dkx(request: DetectionRequest):
                 continue
                 
             df = calculate_dkx(df)
-            signal_info = check_dkx_signal(df, request.lookback)
+            signals = check_dkx_signal(df, request.lookback, request.start_time, request.end_time)
             
-            if signal_info:
-                # Prepare result
-                # We might want to send the chart data too, but for now just the signal
-                # To draw chart, frontend needs OHLC + DKX + MADKX history.
-                # Let's include the last 100 candles in 'details' for charting
+            if request.lookback == 0:
+                if signals:
+                    signals = [signals[-1]]
+                else:
+                    last_row = df.iloc[-1]
+                    current_signal = "BUY" if last_row['dkx'] > last_row['madkx'] else "SELL"
+                    signals = [{
+                        "signal": current_signal,
+                        "date": format_date(last_row.name),
+                        "price": last_row['close'],
+                        "dkx": last_row['dkx'],
+                        "madkx": last_row['madkx'],
+                        "is_state": True,
+                        "offset": 0
+                    }]
+            elif signals:
+                # Ensure only the latest signal is returned per symbol
+                latest_signal = signals[-1]
                 
-                chart_data = df.tail(100).reset_index().to_dict(orient='records')
-                # Convert timestamp to string
-                for item in chart_data:
-                    item['date'] = item['date'].strftime("%Y-%m-%d")
+                # Strict Window Validation
+                # Although check_dkx_signal uses lookback, we explicitly verify offset
+                # User Requirement: 
+                # - If signal offset > lookback, exclude it.
+                # - Signal at boundary (offset < lookback) is included.
+                # Note: offset is 0-based index from end. offset 19 means 20th candle.
+                # If lookback=20, we accept offsets 0..19.
+                if latest_signal.get('offset') is not None and latest_signal['offset'] >= request.lookback:
+                     continue
+                     
+                signals = [latest_signal]
+            
+            symbol_name = get_symbol_name(symbol, request.market)
+
+            for signal_info in signals:
+                # Prepare result
+                # We need to send the chart data centered around the signal or relevant range
+                # and also include all signals within that range for chart markers.
+                
+                # Find index of signal in original df
+                try:
+                    sig_date = pd.to_datetime(signal_info['date'])
+                    # If signal_info['date'] came from format_date, it is string. pd.to_datetime makes it naive (if string is naive).
+                    # check_dkx_signal uses strftime so it is string.
+                    # We need to find it in df.index.
+                    # If df.index is naive, perfect.
+                    # If df.index is aware, we might need to match.
+                    
+                    if df.index.tz is not None and sig_date.tzinfo is None:
+                        sig_date = sig_date.tz_localize(df.index.tz)
+
+                    loc = df.index.get_loc(sig_date)
+                    if isinstance(loc, slice): loc = loc.start
+                    
+                    # Define chart window: Increased range (User request)
+                    # 2000 bars before, 200 bars after to ensure plenty of history
+                    start_pos = max(0, loc - 2000)
+                    end_pos = min(len(df), loc + 200)
+                    
+                    # Ensure minimum length
+                    if end_pos - start_pos < 1000:
+                        start_pos = max(0, end_pos - 1000)
+                    
+                    chart_df = df.iloc[start_pos:end_pos]
+                    chart_data = chart_df.reset_index().to_dict(orient='records')
+                    # Convert timestamp to string
+                    for item in chart_data:
+                        item['date'] = format_date(item['date'])
+                        
+                    # Find all signals within this chart window for markers
+                    c_start = format_date(chart_df.index[0])
+                    c_end = format_date(chart_df.index[-1])
+                    # Use lookback=0 to find all signals in range
+                    chart_signals = check_dkx_signal(df, lookback=0, start_time=c_start, end_time=c_end)
+                    
+                    # If the main signal is a 'State' signal (no crossover), add it to chart signals so it's marked
+                    if signal_info.get('is_state'):
+                         chart_signals.append(signal_info)
+                    
+                except Exception as ex:
+                    print(f"Error preparing chart data: {ex}")
+                    # Fallback
+                    chart_data = df.tail(300).reset_index().to_dict(orient='records')
+                    for item in chart_data:
+                        item['date'] = format_date(item['date'])
+                    chart_signals = []
                 
                 result = SignalResult(
                     symbol=symbol,
-                    date=signal_info['date'],
+                    symbol_name=symbol_name,
+                    date=format_date(pd.to_datetime(signal_info['date'])), # Ensure format
                     signal=signal_info['signal'],
                     close=signal_info['price'],
                     dkx=signal_info['dkx'],
                     madkx=signal_info['madkx'],
-                    details={"chart_data": chart_data}
+                    indicator="DKX",
+                    offset=signal_info.get('offset'),
+                    details={
+                        "chart_data": chart_data,
+                        "chart_signals": chart_signals
+                    }
                 )
                 
                 # Save to DB
@@ -111,21 +197,85 @@ async def detect_ma(request: MaDetectionRequest):
                 continue
                 
             df = calculate_ma(df, request.short_period, request.long_period)
-            signal_info = check_ma_signal(df, request.lookback)
+            signals = check_ma_signal(df, request.lookback, request.start_time, request.end_time)
             
-            if signal_info:
-                chart_data = df.tail(100).reset_index().to_dict(orient='records')
-                for item in chart_data:
-                    item['date'] = item['date'].strftime("%Y-%m-%d")
+            if request.lookback == 0:
+                if signals:
+                    signals = [signals[-1]]
+                else:
+                    last_row = df.iloc[-1]
+                    current_signal = "BUY" if last_row['ma_short'] > last_row['ma_long'] else "SELL"
+                    signals = [{
+                        "signal": current_signal,
+                        "date": format_date(last_row.name),
+                        "price": last_row['close'],
+                        "ma_short": last_row['ma_short'],
+                        "ma_long": last_row['ma_long'],
+                        "is_state": True,
+                        "offset": 0
+                    }]
+            elif signals:
+                # Ensure only the latest signal is returned per symbol
+                latest_signal = signals[-1]
+                
+                # Strict Window Validation
+                if latest_signal.get('offset') is not None and latest_signal['offset'] >= request.lookback:
+                     continue
+                
+                signals = [latest_signal]
+            
+            symbol_name = get_symbol_name(symbol, request.market)
+
+            for signal_info in signals:
+                try:
+                    sig_date = pd.to_datetime(signal_info['date'])
+                    
+                    if df.index.tz is not None and sig_date.tzinfo is None:
+                        sig_date = sig_date.tz_localize(df.index.tz)
+
+                    loc = df.index.get_loc(sig_date)
+                    if isinstance(loc, slice): loc = loc.start
+                    
+                    # Increased range
+                    start_pos = max(0, loc - 800)
+                    end_pos = min(len(df), loc + 100)
+                    
+                    if end_pos - start_pos < 300:
+                        start_pos = max(0, end_pos - 400)
+                    
+                    chart_df = df.iloc[start_pos:end_pos]
+                    chart_data = chart_df.reset_index().to_dict(orient='records')
+                    for item in chart_data:
+                        item['date'] = format_date(item['date'])
+                        
+                    c_start = format_date(chart_df.index[0])
+                    c_end = format_date(chart_df.index[-1])
+                    chart_signals = check_ma_signal(df, lookback=0, start_time=c_start, end_time=c_end)
+                    
+                    if signal_info.get('is_state'):
+                         chart_signals.append(signal_info)
+                    
+                except Exception as ex:
+                    print(f"Error preparing MA chart data: {ex}")
+                    chart_data = df.tail(300).reset_index().to_dict(orient='records')
+                    for item in chart_data:
+                        item['date'] = format_date(item['date'])
+                    chart_signals = []
                 
                 result = SignalResult(
                     symbol=symbol,
-                    date=signal_info['date'],
+                    symbol_name=symbol_name,
+                    date=format_date(pd.to_datetime(signal_info['date'])),
                     signal=signal_info['signal'],
                     close=signal_info['price'],
                     ma_short=signal_info['ma_short'],
                     ma_long=signal_info['ma_long'],
-                    details={"chart_data": chart_data}
+                    indicator="MA",
+                    offset=signal_info.get('offset'),
+                    details={
+                        "chart_data": chart_data,
+                        "chart_signals": chart_signals
+                    }
                 )
                 
                 # Save to DB
