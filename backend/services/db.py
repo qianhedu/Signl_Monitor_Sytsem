@@ -7,6 +7,7 @@ import json
 DB_PATH = "signals.db"
 
 def init_db():
+    """初始化数据库表结构"""
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute('''
@@ -18,7 +19,7 @@ def init_db():
             signal_type TEXT NOT NULL,
             price REAL,
             indicator_type TEXT NOT NULL, -- 'DKX' or 'MA'
-            indicator_values TEXT, -- JSON string of indicator values
+            indicator_values TEXT, -- 指标值的 JSON 字符串
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -27,13 +28,13 @@ def init_db():
 
 def save_signal(data: Dict[str, Any]):
     """
-    Save a detected signal to the database.
+    保存检测到的信号到数据库。
     """
     try:
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         
-        # Check if this specific signal (symbol, date, type) already exists to avoid duplicates
+        # 检查该特定信号 (标的, 日期, 类型) 是否已存在，避免重复
         c.execute('''
             SELECT id FROM signal_history 
             WHERE symbol = ? AND signal_date = ? AND signal_type = ? AND indicator_type = ?
@@ -41,9 +42,9 @@ def save_signal(data: Dict[str, Any]):
         
         if c.fetchone():
             conn.close()
-            return # Already exists
+            return # 已存在
             
-        # Prepare JSON for extra values
+        # 准备额外值的 JSON
         extra_values = {}
         for k in ['dkx', 'madkx', 'ma_short', 'ma_long']:
             if k in data and data[k] is not None:
@@ -68,6 +69,7 @@ def save_signal(data: Dict[str, Any]):
         print(f"Error saving signal to DB: {e}")
 
 def get_history(limit: int = 100) -> List[Dict[str, Any]]:
+    """获取信号历史记录"""
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     c = conn.cursor()

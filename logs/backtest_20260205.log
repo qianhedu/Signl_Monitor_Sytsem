@@ -1,0 +1,8 @@
+2026-02-05 16:04:00,529 - INFO - Target Symbols (2): ['1', '600519']
+2026-02-05 16:04:00,530 - INFO - Running Dual MA Backtest...
+2026-02-05 16:04:22,114 - INFO - Excel report saved to reports/backtest_dual_ma_20260205_160422.xlsx
+2026-02-05 16:04:22,294 - INFO - HTML report saved to reports/backtest_dual_ma_20260205_160422.html
+2026-02-05 16:04:24,954 - INFO - Target Symbols (2): ['000001', '600519']
+2026-02-05 16:04:24,955 - INFO - Running DKX Backtest...
+2026-02-05 16:04:38,777 - INFO - Excel report saved to reports/backtest_dkx_20260205_160438.xlsx
+2026-02-05 16:04:39,074 - INFO - HTML report saved to reports/backtest_dkx_20260205_160438.html

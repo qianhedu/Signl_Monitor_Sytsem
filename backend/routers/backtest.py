@@ -16,10 +16,13 @@ class BacktestRequest(BaseModel):
     end_time: str
     initial_capital: float = 100000.0
     lot_size: int = 20
-    lookback: Optional[int] = 20 # DKX param, though currently fixed in calculation
+    lookback: Optional[int] = 20 # DKX 参数，虽然目前计算中固定了
 
 @router.post("/dkx")
 async def backtest_dkx_endpoint(request: BacktestRequest):
+    """
+    DKX 策略回测端点
+    """
     try:
         results = run_backtest_dkx(
             symbols=request.symbols,

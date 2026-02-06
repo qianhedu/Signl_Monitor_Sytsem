@@ -175,6 +175,19 @@ const loadHotSymbols = async () => {
     // First time entry or restore default
     form.symbols = [...defaultHotSymbols.value]
   }
+  
+  // Fetch symbol details for display
+  if (form.symbols.length > 0) {
+      try {
+          const res = await axios.post('/api/symbols/info', {
+              symbols: form.symbols,
+              market: form.market
+          })
+          symbolOptions.value = res.data
+      } catch (e) {
+          console.error('Failed to fetch symbol info', e)
+      }
+  }
 }
 
 // Call on init
@@ -213,7 +226,26 @@ const searchSymbols = async (query: string) => {
     const response = await axios.get('/api/symbols/search', {
       params: { q: query, market: form.market }
     })
-    symbolOptions.value = response.data
+    
+    // Merge with existing selected options to ensure labels are preserved
+    const newOptions = response.data
+    const selectedMap = new Map()
+    
+    // Keep currently selected options
+    if (form.symbols && form.symbols.length > 0) {
+        symbolOptions.value.forEach(op => {
+            if (form.symbols.includes(op.value)) {
+                selectedMap.set(op.value, op)
+            }
+        })
+    }
+    
+    // Add new options
+    newOptions.forEach((op: any) => {
+        selectedMap.set(op.value, op)
+    })
+    
+    symbolOptions.value = Array.from(selectedMap.values())
   } catch (e) {
     console.error(e)
   } finally {
@@ -492,24 +524,43 @@ const currentTrades = computed(() => {
 const exportExcel = () => {
   if (currentTrades.value.length === 0) return
   
-  const csvContent = "data:text/csv;charset=utf-8," 
-    + "ID,Time,Symbol,Direction,Price,Real Price,Slippage,Quantity,Commission,Profit,Cumulative Profit\n"
-    + currentTrades.value.map((t: any) => 
-        `${t.id},${t.time},${t.symbol},${t.direction},${t.price},${t.real_price || t.price},${t.slippage || 0},${t.quantity},${t.commission.toFixed(2)},${t.profit.toFixed(2)},${t.cumulative_profit.toFixed(2)}`
-      ).join("\n")
-    
-  const encodedUri = encodeURI(csvContent)
+  const headers = [
+    "ID", "时间", "合约", "方向", "价格", "实际成交", "滑点", 
+    "数量(手)", "资金占用", "风险度", "手续费", "盈亏", 
+    "累计盈亏", "当日结存", "报单方式", "对手方"
+  ]
+  
+  const rows = currentTrades.value.map((t: any) => [
+      t.id,
+      t.time,
+      `\t${t.symbol}`,
+      t.direction,
+      t.price,
+      t.real_price ? Number(t.real_price).toFixed(2) : Number(t.price).toFixed(2),
+      t.slippage ? Number(t.slippage).toFixed(1) : '0',
+      t.quantity,
+      t.funds_occupied ? Number(t.funds_occupied).toFixed(0) : '-',
+      t.risk_degree ? (Number(t.risk_degree) * 100).toFixed(1) + '%' : '-',
+      Number(t.commission).toFixed(2),
+      Number(t.profit).toFixed(2),
+      Number(t.cumulative_profit).toFixed(2),
+      t.daily_balance ? Number(t.daily_balance).toFixed(2) : '-',
+      t.order_type || '-',
+      t.counterparty || '-'
+  ])
+  
+  const csvContent = "\uFEFF" + [headers, ...rows].map(e => e.join(",")).join("\n")
+  
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
   const link = document.createElement("a")
   const currentRes = results.value.find(r => r.symbol === currentSymbol.value)
   const name = currentRes ? currentRes.symbol_name : ''
-  link.setAttribute("href", encodedUri)
+  const url = URL.createObjectURL(blob)
+  link.setAttribute("href", url)
   link.setAttribute("download", `backtest_${currentSymbol.value}_${name}.csv`)
   document.body.appendChild(link)
   link.click()
-}
-
-const exportPDF = () => {
-    window.print()
+  document.body.removeChild(link)
 }
 
 searchSymbols('')
@@ -571,9 +622,8 @@ searchSymbols('')
         
         <el-form-item label="周期">
           <el-select v-model="form.period" placeholder="选择周期" style="width: 100px">
-            <el-option label="日线" value="daily" />
             <el-option label="周线" value="weekly" />
-            <el-option label="月线" value="monthly" />
+            <el-option label="日线" value="daily" />
             <el-option label="240分钟" value="240" />
             <el-option label="180分钟" value="180" />
             <el-option label="120分钟" value="120" />
@@ -754,7 +804,6 @@ searchSymbols('')
                 </div>
                 <div class="header-actions" @click.stop v-show="sectionState.tradeList">
                     <el-button type="primary" size="small" @click="exportExcel">导出CSV</el-button>
-                    <el-button type="success" size="small" @click="exportPDF">打印报告 / 导出PDF</el-button>
                 </div>
             </div>
             <el-collapse-transition>

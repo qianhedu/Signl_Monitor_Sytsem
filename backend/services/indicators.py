@@ -6,154 +6,213 @@ from typing import List, Optional
 def get_market_data(symbol: str, market: str = "stock", period: str = "daily", adjust: str = "qfq") -> pd.DataFrame:
     """
     使用 akshare 获取市场数据。
-    market: "stock" (股票) 或 "futures" (期货)
-    period: "daily", "weekly", "monthly", "60", "30", "15", "5"
+    
+    参数:
+        symbol: 标的代码
+        market: "stock" (股票) 或 "futures" (期货)
+        period: 周期, 支持 "daily" (日线), "weekly" (周线), "monthly" (月线), 
+                以及分钟周期 "60", "30", "15", "5"。
+                注意: 对于 "120", "180" 等特殊周期，本函数会获取基础分钟数据（如60分钟）供后续重采样使用。
+        adjust: 复权方式, 默认 "qfq" (前复权)
+        
+    返回:
+        pd.DataFrame: 包含 date, open, high, low, close, volume 等列的数据框。
     """
     try:
         df = pd.DataFrame()
         
-        # 标准化周期
-        # Stock Minutes: period="60"
-        # Futures Minutes: period="60"
-        # Stock Daily: period="daily"
+        # 标准化周期判断
+        # 股票分钟: period="60" 等
+        # 期货分钟: period="60" 等
+        # 股票日线: period="daily"
         
         is_minute = period in ["240", "180", "120", "90", "60", "30", "15", "5", "1"]
 
         if market == "stock":
-            if is_minute:
-                # Map long periods to base periods for resampling
+            # 特殊处理 240分钟 (即日线，但可能需要分钟级的时间戳格式)
+            # 为了数据准确性（包括复权），直接使用日线数据，并将时间统一设置为 15:00
+            if period == "240":
+                df = pd.DataFrame()
+                # 优先使用新浪接口
+                try:
+                    df = ak.stock_zh_a_hist(symbol=symbol, period="daily", adjust=adjust)
+                except Exception as e:
+                    print(f"新浪日线接口失败 (用于240m): {e}，尝试腾讯接口...")
+                    try:
+                         # 腾讯接口不支持 period 参数
+                         prefix = "sh" if symbol.startswith("6") else "sz"
+                         if symbol.startswith("4") or symbol.startswith("8"): prefix = "bj"
+                         tx_symbol = f"{prefix}{symbol}"
+                         df = ak.stock_zh_a_hist_tx(symbol=tx_symbol, start_date="20200101", adjust=adjust)
+                    except Exception as e2:
+                         print(f"腾讯日线接口也失败: {e2}")
+
+                if not df.empty:
+                    df = df.rename(columns={
+                        "日期": "date",
+                        "开盘": "open",
+                        "收盘": "close",
+                        "最高": "high",
+                        "最低": "low",
+                        "成交量": "volume"
+                    })
+                    df['date'] = pd.to_datetime(df['date'])
+                    # 设置时间为 15:00:00
+                    df['date'] = df['date'] + pd.Timedelta(hours=15)
+
+            elif is_minute:
+                # 映射长周期到基础周期以便后续重采样
                 base_period = period
                 need_resample = False
                 
-                if period in ["240", "180", "120", "90"]:
-                    base_period = "60" # Use 60m as base for better performance than 1m
+                # 如果请求的是 90/120/180 分钟，先获取 60 分钟数据，后续再进行重采样
+                # 使用 60 分钟作为基础周期
+                if period in ["180", "120", "90"]:
+                    base_period = "60" 
                     need_resample = True
                 
-                # 使用新浪接口获取分钟数据 (东方财富接口可能不稳定)
-                # 代码需要前缀: 600519 -> sh600519, 000001 -> sz000001
-                prefix = ""
-                if symbol.startswith("6"):
-                    prefix = "sh"
-                elif symbol.startswith("0") or symbol.startswith("3"):
-                    prefix = "sz"
-                elif symbol.startswith("4") or symbol.startswith("8"):
-                    prefix = "bj" 
-                
-                sina_symbol = f"{prefix}{symbol}"
-                df = ak.stock_zh_a_minute(symbol=sina_symbol, period=base_period)
+                # 使用东方财富接口获取分钟数据 (支持复权)
+                # stock_zh_a_hist_min_em 不需要 sh/sz 前缀
+                # 增加重试机制
+                import time
+                max_retries = 3
+                for attempt in range(max_retries):
+                    try:
+                        df = ak.stock_zh_a_hist_min_em(symbol=symbol, period=base_period, adjust=adjust)
+                        if not df.empty:
+                            break
+                    except Exception as e:
+                        if attempt == max_retries - 1:
+                             print(f"获取分钟数据失败 (尝试 {attempt+1}/{max_retries}): {e}")
+                        time.sleep(1)
+
                 if not df.empty:
                     df = df.rename(columns={
-                        "day": "date",
-                        "open": "open",
-                        "high": "high",
-                        "low": "low",
-                        "close": "close",
-                        "volume": "volume"
+                        "日期": "date",
+                        "开盘": "open",
+                        "最高": "high",
+                        "最低": "low",
+                        "收盘": "close",
+                        "成交量": "volume"
                     })
-                    
+                        
                     if need_resample:
-                        df['date'] = pd.to_datetime(df['date'])
-                        df.set_index('date', inplace=True)
-                        
-                        # Custom resampling for stocks to match THS logic
-                        # THS Logic for A-shares (09:30-11:30, 13:00-15:00):
-                        # 120m: [09:30-11:30], [13:00-15:00] (2 bars/day)
-                        # 240m: [09:30-15:00] (1 bar/day)
-                        # 90m: Not standard, but usually splits available time.
-                        # We use a mapping approach based on time.
-                        
-                        def get_period_end_time(ts, period_min):
-                            # Convert time to minutes from 09:30
-                            # Morning: 09:30 (0) to 11:30 (120)
-                            # Afternoon: 13:00 (120 virtual) to 15:00 (240 virtual)
+                            df['date'] = pd.to_datetime(df['date'])
+                            df.set_index('date', inplace=True)
                             
-                            hm = ts.hour * 60 + ts.minute
+                            # A股自定义重采样逻辑，旨在匹配同花顺(THS)等软件的处理方式
+                            # 同花顺 A股逻辑 (交易时间 09:30-11:30, 13:00-15:00):
+                            # 120分钟: [09:30-11:30] 为第一根, [13:00-15:00] 为第二根 (每天2根)
+                            # 240分钟: [09:30-15:00] 包含全天 (每天1根) -> 已通过日线接口处理
+                            # 90分钟: 非标准周期，通常按时间切分。
+                            # 我们使用基于时间的映射方法来处理。
                             
-                            # Normalize time to "trading minutes from 9:30"
-                            # 9:30 = 570m
-                            # 11:30 = 690m
-                            # 13:00 = 780m
-                            # 15:00 = 900m
-                            
-                            minutes_from_open = 0
-                            if 570 < hm <= 690: # Morning
-                                minutes_from_open = hm - 570
-                            elif 780 < hm <= 900: # Afternoon
-                                minutes_from_open = 120 + (hm - 780)
-                            else:
-                                # Out of bounds or exact open (shouldn't happen with closed='right')
-                                return ts
-                            
-                            # Determine bin
-                            # period_min e.g. 120
-                            # bin_index = ceil(minutes_from_open / period_min)
-                            import math
-                            bin_idx = math.ceil(minutes_from_open / int(period_min))
-                            
-                            # Bin end in trading minutes
-                            bin_end_trading_min = bin_idx * int(period_min)
-                            
-                            # Convert back to wall clock time
-                            # If bin_end <= 120: Morning
-                            # If bin_end > 120: Afternoon
-                            
-                            final_hm = 0
-                            if bin_end_trading_min <= 120:
-                                final_hm = 570 + bin_end_trading_min
-                            else:
-                                final_hm = 780 + (bin_end_trading_min - 120)
+                            def get_period_end_time(ts, period_min):
+                                """
+                                计算给定时间戳归属的K线结束时间。
+                                逻辑：将交易时间标准化为从 09:30 开始的分钟数，计算其所在的周期区间。
+                                """
+                                # 将时间转换为从 09:30 开始的分钟数
+                                # 上午: 09:30 (0) 到 11:30 (120)
+                                # 下午: 13:00 (120 虚拟点) 到 15:00 (240 虚拟点)
                                 
-                            # Construct new timestamp
-                            new_h = final_hm // 60
-                            new_m = final_hm % 60
-                            
-                            return ts.replace(hour=new_h, minute=new_m, second=0)
+                                hm = ts.hour * 60 + ts.minute
+                                
+                                # 标准化时间为 "自09:30起的交易分钟数"
+                                # 9:30 = 570m
+                                # 11:30 = 690m
+                                # 13:00 = 780m
+                                # 15:00 = 900m
+                                
+                                minutes_from_open = 0
+                                if 570 < hm <= 690: # 上午盘
+                                    minutes_from_open = hm - 570
+                                elif 780 < hm <= 900: # 下午盘
+                                    minutes_from_open = 120 + (hm - 780)
+                                else:
+                                    # 超出范围或正好是开盘点 (通常closed='right'不会出现)
+                                    return ts
+                                
+                                # 确定所属的区间 (Bin)
+                                # period_min 例如 120
+                                # bin_index = ceil(minutes_from_open / period_min)
+                                import math
+                                bin_idx = math.ceil(minutes_from_open / int(period_min))
+                                
+                                # 计算该区间结束时的交易分钟数
+                                bin_end_trading_min = bin_idx * int(period_min)
+                                
+                                # 将交易分钟数转换回自然时间
+                                # 如果结束时间 <= 120: 在上午
+                                # 如果结束时间 > 120: 在下午
+                                
+                                final_hm = 0
+                                if bin_end_trading_min <= 120:
+                                    final_hm = 570 + bin_end_trading_min
+                                else:
+                                    final_hm = 780 + (bin_end_trading_min - 120)
+                                    
+                                # 构造新的时间戳
+                                new_h = final_hm // 60
+                                new_m = final_hm % 60
+                                
+                                return ts.replace(hour=new_h, minute=new_m, second=0)
 
-                        # Apply mapping
-                        # Note: Vectorizing this would be faster, but apply is easier for logic
-                        # Only apply to rows.
-                        
-                        # Optimization: Create a map for unique times
-                        unique_times = pd.Series(df.index.time).unique()
-                        time_map = {}
-                        for t in unique_times:
-                            # Create a dummy datetime to use the function
-                            dummy_dt = pd.Timestamp(year=2000, month=1, day=1, hour=t.hour, minute=t.minute)
-                            mapped_dt = get_period_end_time(dummy_dt, period)
-                            time_map[t] = mapped_dt.time()
+                            # 应用映射逻辑
+                            # 注意: 向量化处理会更快，但 apply 方法逻辑更直观
+                            # 优化: 创建唯一时间映射表，减少重复计算
+                            unique_times = pd.Series(df.index.time).unique()
+                            time_map = {}
+                            for t in unique_times:
+                                # 创建一个哑元日期用于函数调用
+                                dummy_dt = pd.Timestamp(year=2000, month=1, day=1, hour=t.hour, minute=t.minute)
+                                mapped_dt = get_period_end_time(dummy_dt, period)
+                                time_map[t] = mapped_dt.time()
+                                
+                            # 赋值新的时间
+                            # 需要保留原有的日期部分
+                            new_dates = []
+                            for idx in df.index:
+                                t = idx.time()
+                                mapped_time = time_map.get(t, t)
+                                new_dates.append(idx.replace(hour=mapped_time.hour, minute=mapped_time.minute))
+                                
+                            df['resample_date'] = new_dates
                             
-                        # Assign new time
-                        # We need to preserve the Date part
-                        
-                        new_dates = []
-                        for idx in df.index:
-                            t = idx.time()
-                            mapped_time = time_map.get(t, t)
-                            new_dates.append(idx.replace(hour=mapped_time.hour, minute=mapped_time.minute))
+                            # 按重采样后的时间分组聚合
+                            ohlc_dict = {
+                                'open': 'first',
+                                'high': 'max',
+                                'low': 'min',
+                                'close': 'last',
+                                'volume': 'sum'
+                            }
                             
-                        df['resample_date'] = new_dates
-                        
-                        # Group by resample_date
-                        ohlc_dict = {
-                            'open': 'first',
-                            'high': 'max',
-                            'low': 'min',
-                            'close': 'last',
-                            'volume': 'sum'
-                        }
-                        
-                        df_res = df.groupby('resample_date').agg(ohlc_dict).dropna()
-                        df_res.index.name = 'date'
-                        df = df_res.reset_index()
+                            df_res = df.groupby('resample_date').agg(ohlc_dict).dropna()
+                            df_res.index.name = 'date'
+                            df = df_res.reset_index()
             else:
-                # stock_zh_a_hist 支持日/周/月
+                # stock_zh_a_hist 接口支持 日/周/月
+                df = pd.DataFrame()
                 try:
                     df = ak.stock_zh_a_hist(symbol=symbol, period=period, adjust=adjust)
                 except Exception as e:
-                    print(f"Error fetching data for {symbol}: {e}")
-                    # 降级方案：尝试获取分钟数据并重采样为日线
+                    print(f"获取 {symbol} 数据出错: {e}")
+                    # 故障转移：仅针对日线，尝试腾讯接口
                     if period == 'daily':
-                        print("Attempting fallback to Sina minute data resampled to daily...")
+                        print("尝试使用腾讯接口作为备选方案...")
+                        try:
+                            prefix = "sh" if symbol.startswith("6") else "sz"
+                            if symbol.startswith("4") or symbol.startswith("8"): prefix = "bj"
+                            tx_symbol = f"{prefix}{symbol}"
+                            # 腾讯接口返回所有历史数据，数据量较大，需注意
+                            df = ak.stock_zh_a_hist_tx(symbol=tx_symbol, start_date="20200101", adjust=adjust)
+                        except Exception as e_tx:
+                             print(f"腾讯接口备选方案失败: {e_tx}")
+
+                    # 二级降级方案：尝试获取分钟数据并重采样为日线
+                    if df.empty and period == 'daily':
+                        print("尝试使用新浪分钟数据重采样为日线作为二级备选方案...")
                         try:
                             prefix = "sh" if symbol.startswith("6") else "sz"
                             if symbol.startswith("4") or symbol.startswith("8"): prefix = "bj"
@@ -172,7 +231,7 @@ def get_market_data(symbol: str, market: str = "stock", period: str = "daily", a
                                 df = df.reset_index()
                                 df = df.rename(columns={'day': '日期', 'open': '开盘', 'high': '最高', 'low': '最低', 'close': '收盘', 'volume': '成交量'})
                         except Exception as e2:
-                            print(f"Fallback failed: {e2}")
+                            print(f"备选方案失败: {e2}")
                             
                 if not df.empty:
                     df = df.rename(columns={
@@ -186,7 +245,7 @@ def get_market_data(symbol: str, market: str = "stock", period: str = "daily", a
                 
         elif market == "futures":
             if period in ["240", "180", "120", "90"]:
-                # Custom resampling for futures long intraday
+                # 期货长周期分钟数据的自定义重采样
                 base_period = "60"
                 multiplier = 1
                 if period == "120": multiplier = 2
@@ -209,7 +268,8 @@ def get_market_data(symbol: str, market: str = "stock", period: str = "daily", a
                             "hold": "hold"
                         })
                         
-                        # Resample using row-based aggregation (simplest approximation for continuous contracts)
+                        # 简单的行数聚合重采样 (适用于连续合约的近似处理)
+                        # 注意：更严谨的处理应考虑交易时间段
                         df['date'] = pd.to_datetime(df['date'])
                         df.sort_values('date', inplace=True)
                         df.reset_index(drop=True, inplace=True)
@@ -225,12 +285,12 @@ def get_market_data(symbol: str, market: str = "stock", period: str = "daily", a
                         if 'hold' in df.columns:
                             agg_dict['hold'] = 'last'
                             
-                        # Group every N rows
+                        # 每 N 行分为一组
                         group_key = df.index // multiplier
                         df = df.groupby(group_key).agg(agg_dict)
                         df.reset_index(drop=True, inplace=True)
                 except Exception as e:
-                    print(f"Error fetching/resampling futures data for {symbol} {period}: {e}")
+                    print(f"获取/重采样期货数据 {symbol} {period} 出错: {e}")
                     df = pd.DataFrame()
 
             elif is_minute:
@@ -248,7 +308,7 @@ def get_market_data(symbol: str, market: str = "stock", period: str = "daily", a
                             "hold": "hold"
                         })
                 except Exception as e:
-                    print(f"Error fetching futures minute data: {e}")
+                    print(f"获取期货分钟数据出错: {e}")
                     df = pd.DataFrame()
             else:
                 # 期货日线数据 (futures_zh_daily_sina)
@@ -268,6 +328,7 @@ def get_market_data(symbol: str, market: str = "stock", period: str = "daily", a
                         
                         df['date'] = pd.to_datetime(df['date'])
                         
+                        # 周线/月线重采样
                         if period == "weekly":
                             df.set_index('date', inplace=True)
                             agg_dict = {
@@ -291,7 +352,7 @@ def get_market_data(symbol: str, market: str = "stock", period: str = "daily", a
                             if 'hold' in df.columns: agg_dict['hold'] = 'last'
                             df = df.resample('ME').agg(agg_dict).dropna().reset_index()
                 except Exception as e:
-                    print(f"Error fetching futures daily data: {e}")
+                    print(f"获取期货日线数据出错: {e}")
                     df = pd.DataFrame()
         
         if df.empty:
@@ -300,7 +361,7 @@ def get_market_data(symbol: str, market: str = "stock", period: str = "daily", a
         # 确保 date 列为 datetime 类型
         df['date'] = pd.to_datetime(df['date'])
         df.set_index('date', inplace=True)
-        # Ensure index is sorted for reliable slicing
+        # 确保索引排序，以便进行可靠的切片操作
         df.sort_index(inplace=True)
         
         # 确保数值列类型正确
@@ -311,7 +372,7 @@ def get_market_data(symbol: str, market: str = "stock", period: str = "daily", a
                 
         return df
     except Exception as e:
-        print(f"Error fetching data for {symbol}: {e}")
+        print(f"获取 {symbol} 数据时发生未知错误: {e}")
         return pd.DataFrame()
 
 def calculate_dkx(df: pd.DataFrame) -> pd.DataFrame:
@@ -335,13 +396,6 @@ def calculate_dkx(df: pd.DataFrame) -> pd.DataFrame:
     3. MADKX (信号线):
        MADKX 是 DKX 的 10 周期简单移动平均 (SMA)。
        MADKX = MA(DKX, 10)
-       
-    交易时段与数据源说明:
-    - 对于 180 分钟等特殊周期，传入本函数的 DataFrame 必须已经过正确的重采样 (Resampling) 处理。
-    - 重采样逻辑应确保：
-      a) 纯日盘品种 (如 LC): 09:00-11:30 (150m) + 13:30-14:00 (30m) 组成第一根 180m K线。
-      b) 夜盘品种 (如 SS): 夜盘数据 (21:00起) 必须正确归入次日交易日，避免跨日错误。
-      c) 均线计算基于重采样后的 Close/High/Low/Open。
     """
     if df.empty or len(df) < 20:
         return df
@@ -352,10 +406,8 @@ def calculate_dkx(df: pd.DataFrame) -> pd.DataFrame:
     
     # 2. 计算 DKX (20周期加权移动平均)
     # 构造权重数组: [1, 2, ..., 20]
-    # 注意: rolling apply 时，传入的数组 x 是 [t-19, ..., t]，即 x[-1] 是当前时刻 t
-    # 因此我们需要权重数组 w_asc = [1, 2, ..., 20]，使得 x[-1]*20 + x[-2]*19 ...
     weights_asc = np.arange(1, 21) # [1, 2, ..., 20]
-    sum_weights = np.sum(weights_asc) # 210 (常数)
+    sum_weights = np.sum(weights_asc) # 210
     
     # 使用 rolling().apply() 进行加权求和
     # raw=True 提升性能，直接操作 numpy 数组
@@ -371,27 +423,33 @@ def calculate_dkx(df: pd.DataFrame) -> pd.DataFrame:
 
 def check_dkx_signal(df: pd.DataFrame, lookback: int = 5, start_time: Optional[str] = None, end_time: Optional[str] = None) -> List[dict]:
     """
-    Check for Golden Cross (DKX crosses above MADKX) or Dead Cross.
-    Returns list of signals within lookback period or specified time range.
+    检查 DKX 金叉 (向上突破) 或 死叉 (向下突破) 信号。
+    
+    参数:
+        df: 包含 dkx, madkx 列的 DataFrame
+        lookback: 回溯期，检查最近 N 根K线内的信号
+        start_time: 开始时间 (可选)
+        end_time: 结束时间 (可选)
+        
+    返回:
+        List[dict]: 信号列表
     """
     if 'dkx' not in df.columns or df['dkx'].isnull().all():
         return []
 
     subset = pd.DataFrame()
-    start_idx = 0
 
     if start_time and end_time:
-        # Filter by time range, but ensure we have 1 extra row before for crossover check
-        # Use label-based slicing which is more robust than direct comparison
+        # 按时间范围过滤，但需确保包含前一行以便检查交叉
         try:
-            # Ensure index is datetime type
+            # 确保索引为 datetime 类型
             if not isinstance(df.index, pd.DatetimeIndex):
                 df.index = pd.to_datetime(df.index)
             
-            # Sort index to ensure slicing works
+            # 排序索引
             df.sort_index(inplace=True)
             
-            # 1. Align Timezones for filtering
+            # 1. 对齐时区
             ts_start = pd.to_datetime(start_time)
             ts_end = pd.to_datetime(end_time)
             
@@ -408,19 +466,9 @@ def check_dkx_signal(df: pd.DataFrame, lookback: int = 5, start_time: Optional[s
                     ts_start = ts_start.tz_convert(index_tz)
                     ts_end = ts_end.tz_convert(index_tz)
             
-            # 2. Find subset using boolean mask (more robust than loc slicing for mixed types)
+            # 2. 使用布尔掩码查找子集 (比 loc 切片更健壮)
             mask = (df.index >= ts_start) & (df.index <= ts_end)
-            # We need to find the range indices to extend backwards by 1
-            # So we can't just return df[mask] because we need the previous row
             
-            # Find the integer indices of the mask
-            # valid_indices = np.where(mask)[0]
-            # if len(valid_indices) == 0: return []
-            # start_idx = max(0, valid_indices[0] - 1)
-            # end_idx = valid_indices[-1] + 1
-            # subset = df.iloc[start_idx:end_idx]
-            
-            # Let's stick to the previous logic but use robust finding
             temp_subset = df.loc[mask]
             
             if temp_subset.empty:
@@ -429,19 +477,24 @@ def check_dkx_signal(df: pd.DataFrame, lookback: int = 5, start_time: Optional[s
             first_date = temp_subset.index[0]
             last_date = temp_subset.index[-1]
             
-            # Find integer locations
+            # 查找整数位置索引
             loc_start = df.index.get_loc(first_date)
             if isinstance(loc_start, slice): loc_start = loc_start.start
             
             loc_end = df.index.get_loc(last_date)
-            if isinstance(loc_end, slice): loc_end = loc_end.stop - 1 # get_loc slice stop is exclusive? No, get_loc returns slice of matches.
-            # If unique index, get_loc returns int.
+            # 如果是 slice，stop 是排他的，需要 -1 才能指向最后一个元素
+            # 但这里我们要的是整数索引
+            if isinstance(loc_end, slice): 
+                # 这里有点复杂，如果重复索引，slice stop 指向最后一个元素的下一个
+                # 比如 [0, 1, 2], slice(0, 3). stop=3. 最后一个元素 idx=2.
+                # 我们想定位到 idx=2.
+                loc_end = loc_end.stop - 1 
             
+            # 向前扩展一行
             start_slice = max(0, loc_start - 1)
-            # For end_slice, we want to include the last matching element.
-            # iloc slice end is exclusive. So we need loc_end + 1.
+            
+            # 向后切片是排他的，所以要 +1
             if isinstance(loc_end, slice):
-                 # If slice, stop is exclusive, so it points to next.
                  end_slice = loc_end.stop
             else:
                  end_slice = loc_end + 1
@@ -449,15 +502,14 @@ def check_dkx_signal(df: pd.DataFrame, lookback: int = 5, start_time: Optional[s
             subset = df.iloc[start_slice:end_slice]
             
         except Exception as e:
-            print(f"Error in check_dkx_signal time filtering: {e}")
+            print(f"check_dkx_signal 时间过滤出错: {e}")
             return []
         
     else:
-        # Use lookback
-        # Handle negative lookback by taking absolute value
+        # 使用回溯期 (lookback)
         lb = abs(lookback)
         if lb == 0:
-            # If lookback is 0, check the entire available history
+            # 如果 lookback 为 0，检查所有可用历史
             subset = df
         else:
             subset = df.iloc[-lb-1:]
@@ -467,24 +519,24 @@ def check_dkx_signal(df: pd.DataFrame, lookback: int = 5, start_time: Optional[s
 
     signals = []
 
-    # Iterate to find crossover
-    # We check if relationship changed from previous day to current day
+    # 遍历检查交叉
+    # 我们检查从前一天到当天的关系变化
     for i in range(1, len(subset)):
         prev = subset.iloc[i-1]
         curr = subset.iloc[i]
         
-        # Calculate offset
+        # 计算偏移量 (用于前端定位)
         try:
-            # Use get_loc on the original df to find the absolute position
+            # 在原始 df 中查找绝对位置
             curr_idx = df.index.get_loc(curr.name)
             if isinstance(curr_idx, slice): 
-                # If slice (duplicate index), take the last one
+                # 如果是 slice (重复索引)，取最后一个
                 curr_idx = curr_idx.stop - 1
             offset = len(df) - 1 - curr_idx
         except:
             offset = None
         
-        # Golden Cross: Prev DKX < Prev MADKX AND Curr DKX > Curr MADKX
+        # 金叉: 前一日 DKX < MADKX 且 当日 DKX > MADKX
         if prev['dkx'] < prev['madkx'] and curr['dkx'] > curr['madkx']:
             signals.append({
                 "signal": "BUY",
@@ -495,7 +547,7 @@ def check_dkx_signal(df: pd.DataFrame, lookback: int = 5, start_time: Optional[s
                 "offset": offset
             })
         
-        # Dead Cross: Prev DKX > Prev MADKX AND Curr DKX < Curr MADKX
+        # 死叉: 前一日 DKX > MADKX 且 当日 DKX < MADKX
         elif prev['dkx'] > prev['madkx'] and curr['dkx'] < curr['madkx']:
              signals.append({
                 "signal": "SELL",
@@ -506,15 +558,11 @@ def check_dkx_signal(df: pd.DataFrame, lookback: int = 5, start_time: Optional[s
                 "offset": offset
             })
             
-    # If lookback is 0 and no time range specified, we only return the latest signal
-    # REVISED: We return ALL signals here. Filtering for "latest only" when lookback=0 
-    # should be done in the caller (API handler) if desired, so that chart generation 
-    # (which also uses lookback=0) can still get all signals.
     return signals
 
 def calculate_ma(df: pd.DataFrame, short_period: int = 5, long_period: int = 10) -> pd.DataFrame:
     """
-    Calculate Dual Moving Average.
+    计算双均线 (Dual Moving Average)。
     """
     if df.empty:
         return df
@@ -526,7 +574,7 @@ def calculate_ma(df: pd.DataFrame, short_period: int = 5, long_period: int = 10)
 
 def check_ma_signal(df: pd.DataFrame, lookback: int = 5, start_time: Optional[str] = None, end_time: Optional[str] = None) -> List[dict]:
     """
-    Check for MA Golden Cross / Dead Cross.
+    检查均线金叉 / 死叉信号。
     """
     if 'ma_short' not in df.columns or df['ma_short'].isnull().all():
         return []
@@ -534,16 +582,13 @@ def check_ma_signal(df: pd.DataFrame, lookback: int = 5, start_time: Optional[st
     subset = pd.DataFrame()
     
     if start_time and end_time:
-         # Filter by time range, but ensure we have 1 extra row before for crossover check
+         # 按时间范围过滤
         try:
-            # Ensure index is datetime type
             if not isinstance(df.index, pd.DatetimeIndex):
                 df.index = pd.to_datetime(df.index)
             
-            # Sort index to ensure slicing works
             df.sort_index(inplace=True)
 
-            # 1. Align Timezones for filtering
             ts_start = pd.to_datetime(start_time)
             ts_end = pd.to_datetime(end_time)
             
@@ -560,10 +605,8 @@ def check_ma_signal(df: pd.DataFrame, lookback: int = 5, start_time: Optional[st
                     ts_start = ts_start.tz_convert(index_tz)
                     ts_end = ts_end.tz_convert(index_tz)
             
-            # 2. Find subset using boolean mask (more robust than loc slicing for mixed types)
             mask = (df.index >= ts_start) & (df.index <= ts_end)
             
-            # Let's stick to the previous logic but use robust finding
             temp_subset = df.loc[mask]
 
             if temp_subset.empty:
@@ -572,7 +615,6 @@ def check_ma_signal(df: pd.DataFrame, lookback: int = 5, start_time: Optional[st
             first_date = temp_subset.index[0]
             last_date = temp_subset.index[-1]
             
-            # Find integer locations
             loc_start = df.index.get_loc(first_date)
             if isinstance(loc_start, slice): loc_start = loc_start.start
             
@@ -588,15 +630,13 @@ def check_ma_signal(df: pd.DataFrame, lookback: int = 5, start_time: Optional[st
                 
             subset = df.iloc[start_slice:end_slice]
         except Exception as e:
-            print(f"Error in check_ma_signal time filtering: {e}")
+            print(f"check_ma_signal 时间过滤出错: {e}")
             return []
     else:
-        # Handle negative lookback
         lb = abs(lookback)
         if lb == 0:
             subset = df
         else:
-            # Ensure at least 1 row + 1 prev row
             lb = max(1, lb)
             subset = df.iloc[-lb-1:]  
         
@@ -609,7 +649,6 @@ def check_ma_signal(df: pd.DataFrame, lookback: int = 5, start_time: Optional[st
         prev = subset.iloc[i-1]
         curr = subset.iloc[i]
         
-        # Calculate offset
         try:
             curr_idx = df.index.get_loc(curr.name)
             if isinstance(curr_idx, slice): 
@@ -618,7 +657,7 @@ def check_ma_signal(df: pd.DataFrame, lookback: int = 5, start_time: Optional[st
         except:
             offset = None
         
-        # Golden Cross: Prev Short < Prev Long AND Curr Short > Curr Long
+        # 金叉: 短均线 上穿 长均线
         if prev['ma_short'] < prev['ma_long'] and curr['ma_short'] > curr['ma_long']:
              signals.append({
                 "signal": "BUY",
@@ -629,7 +668,7 @@ def check_ma_signal(df: pd.DataFrame, lookback: int = 5, start_time: Optional[st
                 "offset": offset
             })
         
-        # Dead Cross
+        # 死叉: 短均线 下穿 长均线
         elif prev['ma_short'] > prev['ma_long'] and curr['ma_short'] < curr['ma_long']:
             signals.append({
                 "signal": "SELL",
@@ -640,5 +679,4 @@ def check_ma_signal(df: pd.DataFrame, lookback: int = 5, start_time: Optional[st
                 "offset": offset
             })
             
-    # REVISED: Return all signals. Filtering is done in caller.
     return signals

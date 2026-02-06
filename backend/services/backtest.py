@@ -13,7 +13,14 @@ from .futures_master import (
 
 def get_symbol_name(symbol: str, market: str) -> str:
     """
-    Get symbol name from metadata.
+    从元数据中获取标的名称。
+    
+    参数:
+        symbol: 标的代码
+        market: 市场类型 ("stock" 或 "futures")
+        
+    返回:
+        str: 标的名称（不含代码），如果找不到则返回原代码。
     """
     try:
         if market == 'stock':
@@ -33,28 +40,39 @@ def get_symbol_name(symbol: str, market: str) -> str:
 
 def filter_trading_hours(df: pd.DataFrame, symbol: str) -> pd.DataFrame:
     """
-    Filter data based on trading hours type.
+    根据交易时间类型过滤数据。
+    
+    主要用于剔除夜盘数据或非主要交易时段的数据，以匹配特定的回测需求。
+    
+    逻辑说明:
+    1. 获取品种的交易时间类型 (get_trading_hours_type)。
+    2. 根据类型进行时间过滤:
+       - 'no_night': 仅保留 09:00 至 15:15 的日盘数据 (包含收盘集合竞价)。
+       - 'late_night_2:30', 'late_night': 保留所有数据 (通常包含夜盘)。
+    3. 特殊处理 (Volume/Hold 调整):
+       - 针对 JD (鸡蛋) 等特殊品种，根据用户需求调整成交量和持仓量单位。
+         例如: 将默认的 5吨/手 转换为 500千克/手，系数为 10。
     """
-    # 1. Trading Hours Filter
+    # 1. 交易时间过滤
     hours_type = get_trading_hours_type(symbol)
     
     filtered_df = df
     if hours_type == 'no_night':
-        # Keep 09:00 to 15:15 (Include closing auction time)
+        # 仅保留 09:00 到 15:15 (包含收盘集合竞价)
         filtered_df = df.between_time('09:00', '15:15').copy()
     elif hours_type == 'late_night_2:30':
-        # Keep all (assuming data source handles 02:30 correctly or we accept all provided data)
+        # 保留所有数据 (假设数据源已正确处理 02:30 收盘或我们接受所有提供的数据)
         filtered_df = df.copy()
     elif hours_type == 'late_night':
-        # SS: Keep all (including 21:00-01:00)
+        # 上期所等: 保留所有数据 (包括 21:00-01:00)
         filtered_df = df.copy()
     else:
         filtered_df = df.copy()
 
-    # 2. Volume/Hold Adjustment
-    # JD: Convert 5 tons/hand (default) to 500kg/hand (user request).
-    # Factor = 5000kg / 500kg = 10.
-    # Multiply Volume and Hold by 10.
+    # 2. 成交量/持仓量调整 (Volume/Hold Adjustment)
+    # JD: 将默认的 5吨/手 转换为 500千克/手 (用户需求)。
+    # 系数 Factor = 5000kg / 500kg = 10。
+    # 将 Volume 和 Hold 乘以 10。
     import re
     match = re.match(r"([A-Z]+)", symbol.upper())
     code = match.group(1) if match else symbol.upper()
@@ -218,19 +236,36 @@ def run_backtest_dkx(
     initial_capital: float = 100000.0,
     lot_size: int = 20
 ) -> Dict[str, Any]:
+    """
+    运行 DKX 策略回测。
+    
+    参数:
+        symbols: 标的代码列表
+        market: 市场类型 ("stock" 或 "futures")
+        period: K线周期
+        start_time: 回测开始时间
+        end_time: 回测结束时间
+        initial_capital: 初始资金 (默认 100,000)
+        lot_size: 交易手数 (默认 20)
+        
+    返回:
+        Dict: 包含回测结果的字典
+    """
     
     results = []
     
-    # 交易参数
-    # multiplier moved inside loop
-    commission_rate = 0.0003 # 双边万三
+    # 交易费用设置
+    # commission_rate: 手续费率，双边万三 (0.0003)
+    commission_rate = 0.0003 
     
     for symbol in symbols:
-        # Determine Multiplier
+        # 确定合约乘数 (Multiplier)
+        # 股票默认为 100 (1手=100股)
+        # 期货则根据品种获取对应乘数
         multiplier = 100 if market == 'stock' else get_futures_multiplier(symbol)
         
-        # 1. Fetch Data
-        # Handle custom minute periods
+        # 1. 获取数据 (Fetch Data)
+        # 处理自定义分钟周期
         custom_periods = ['90', '120', '180', '240']
         fetch_period = period
         need_resample = False
@@ -250,18 +285,19 @@ def run_backtest_dkx(
         df = get_market_data(symbol, market=market, period=fetch_period)
         
         if df.empty:
-            print(f"Warning: No data fetched for {symbol}")
+            print(f"警告: 未获取到 {symbol} 的数据")
             continue
 
-        # Apply Trading Hours Filter (New Requirement)
+        # 应用交易时间过滤 (新需求)
+        # 期货市场可能需要过滤夜盘等
         if market == 'futures':
             df = filter_trading_hours(df, symbol)
         
-        # Resample if needed
+        # 如果需要重采样 (Resample)
         if need_resample:
              df = resample_data(df, period)
         
-        # Handle Futures Weekly/Monthly if API didn't support it directly
+        # 处理期货的周线/月线 (如果 API 不直接支持)
         if market == 'futures' and period in ['weekly', 'monthly']:
             if df.empty:
                 df = get_market_data(symbol, market=market, period='daily')
@@ -270,7 +306,7 @@ def run_backtest_dkx(
         if df.empty:
             continue
             
-        # Filter by time range
+        # 根据时间范围过滤数据
         try:
             # 确保 index 为 datetime 类型并排序
             if not isinstance(df.index, pd.DatetimeIndex):
@@ -308,19 +344,19 @@ def run_backtest_dkx(
                     df = df.loc[mask].copy()
                     
                 except Exception as filter_err:
-                    print(f"Time filter error for {symbol}: {filter_err}")
+                    print(f"{symbol} 时间过滤错误: {filter_err}")
                     df = pd.DataFrame()
         except Exception as e:
-            print(f"Time filter error for {symbol}: {e}")
+            print(f"{symbol} 时间过滤错误: {e}")
             continue
             
         if df.empty:
             continue
 
-        # 2. Calculate Indicators
+        # 2. 计算指标 (Calculate Indicators)
         df = calculate_dkx(df)
         
-        # 3. Simulate Trading
+        # 3. 模拟交易 (Simulate Trading)
         trades = []
         equity_curve = []
         
@@ -332,28 +368,28 @@ def run_backtest_dkx(
         current_balance = initial_capital
         trade_count = 0
         
-        # Calculate actual trading quantity based on lot size and multiplier
-        # lot_size is the user input (e.g., 20 hands)
-        # multiplier is the contract size (e.g., 10 tons/hand)
-        # We record lot_size as 'quantity' for display
-        # We use lot_size * multiplier for PnL calculation
+        # 计算实际交易数量 (Value Quantity)
+        # lot_size 是用户输入的手数 (如 20 手)
+        # multiplier 是合约乘数 (如 10 吨/手)
+        # 我们记录 lot_size 为 'quantity' 用于显示
+        # 我们使用 lot_size * multiplier 进行盈亏计算 (trade_quantity_value)
         
         trade_quantity_value = lot_size * multiplier
         
-        # Max Margin Usage Tracking
-        # Max Margin = Max(Open Price * Lot Size * Multiplier * Margin Rate)
+        # 最大保证金占用跟踪 (Max Margin Usage Tracking)
+        # 最大占用 = Max(开仓价格 * 交易单位 * 保证金比例 * 手数)
         margin_rate = get_margin_rate(symbol)
         max_margin_used = 0.0
         
-        # Slippage Settings
+        # 滑点设置 (Slippage Settings)
         min_tick = get_min_tick(symbol)
         slippage_ticks = 1
         slippage_val = min_tick * slippage_ticks
 
-        # Debug Margin Calculation for specific symbols
+        # 调试特定品种的保证金计算
         if symbol.upper().startswith('FG'):
             print(f"DEBUG FG Margin: Price={df['close'].iloc[0]}, Multiplier={multiplier}, MarginRate={margin_rate}, Lots={lot_size}")
-            # Expected: Price * 20 * 0.05 * Lots
+            # 预期: Price * 20 * 0.05 * Lots
 
         # 遍历数据
         for i in range(1, len(df)):
@@ -364,13 +400,11 @@ def run_backtest_dkx(
             curr_madkx = df['madkx'].iloc[i]
             curr_price = df['close'].iloc[i]
             
-            # Update Max Margin if holding position
+            # 如果持有仓位，更新最大保证金占用
             if position != 0:
-                # Margin is based on Entry Price usually, or MTM?
-                # Usually Initial Margin is based on Entry Price.
-                # Maintenance Margin tracks Price.
-                # Let's track Initial Margin Requirement for simplicity as "Max Occupied Margin"
-                # If we pyramid, it increases. Here we just have 1 position.
+                # 保证金通常基于开仓价计算 (初始保证金)
+                # 也可以基于市价计算 (维持保证金)
+                # 这里为了简单起见，跟踪 "最大初始保证金占用"
                 current_margin = entry_price * trade_quantity_value * margin_rate
                 max_margin_used = max(max_margin_used, current_margin)
             
@@ -379,9 +413,9 @@ def run_backtest_dkx(
                 continue
 
             # 信号判断
-            # 金叉: 上穿
+            # 金叉: DKX 上穿 MADKX
             golden_cross = (prev_dkx < prev_madkx) and (curr_dkx > curr_madkx)
-            # 死叉: 下穿
+            # 死叉: DKX 下穿 MADKX
             dead_cross = (prev_dkx > prev_madkx) and (curr_dkx < curr_madkx)
             
             action = None # 'buy', 'sell', 'close_buy', 'close_sell'
@@ -389,8 +423,8 @@ def run_backtest_dkx(
             # 交易逻辑
             if golden_cross:
                 if position == -1:
-                    # 平空开多
-                    # 1. 平空 (Buy to Cover) -> Price + Slippage
+                    # 平空开多 (Close Short, Open Long)
+                    # 1. 平空 (Buy to Cover) -> 价格 + 滑点
                     real_close_price = curr_price + slippage_val
                     pnl = (entry_price - real_close_price) * trade_quantity_value
                     comm = real_close_price * trade_quantity_value * commission_rate
@@ -405,7 +439,7 @@ def run_backtest_dkx(
                         'price': curr_price,
                         'real_price': real_close_price,
                         'slippage': slippage_val,
-                        'quantity': lot_size, # Display lot size
+                        'quantity': lot_size, # 显示手数
                         'commission': comm,
                         'profit': net_pnl,
                         'cumulative_profit': current_balance - initial_capital,
@@ -418,7 +452,7 @@ def run_backtest_dkx(
                     })
                     trade_count += 1
                     
-                    # 2. 开多 (Buy) -> Price + Slippage
+                    # 2. 开多 (Buy) -> 价格 + 滑点
                     real_open_price = curr_price + slippage_val
                     comm_open = real_open_price * trade_quantity_value * commission_rate
                     current_balance -= comm_open # 开仓扣手续费
@@ -452,7 +486,7 @@ def run_backtest_dkx(
                     trade_count += 1
                     
                 elif position == 0:
-                    # 开多 (Buy) -> Price + Slippage
+                    # 开多 (Buy) -> 价格 + 滑点
                     real_open_price = curr_price + slippage_val
                     comm_open = real_open_price * trade_quantity_value * commission_rate
                     current_balance -= comm_open
@@ -486,8 +520,8 @@ def run_backtest_dkx(
                     
             elif dead_cross:
                 if position == 1:
-                    # 平多开空
-                    # 1. 平多 (Sell to Cover) -> Price - Slippage
+                    # 平多开空 (Close Long, Open Short)
+                    # 1. 平多 (Sell to Cover) -> 价格 - 滑点
                     real_close_price = curr_price - slippage_val
                     pnl = (real_close_price - entry_price) * trade_quantity_value
                     comm = real_close_price * trade_quantity_value * commission_rate

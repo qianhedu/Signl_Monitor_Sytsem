@@ -6,13 +6,13 @@ try:
 except ImportError:
     from backend.services.futures_master import load_contracts
 
-# Simple in-memory cache
+# 简单的内存缓存
 _STOCK_CACHE = None
 _FUTURES_CACHE = None
 _HS300_CACHE = None
 
 def get_hs300_list() -> List[Dict[str, str]]:
-    """Get HS300 constituent stocks"""
+    """获取沪深300成分股列表"""
     global _HS300_CACHE
     if _HS300_CACHE is not None:
         return _HS300_CACHE
@@ -28,10 +28,10 @@ def get_hs300_list() -> List[Dict[str, str]]:
         return results
     except Exception as e:
         print(f"Error fetching HS300: {e}")
-        return get_stock_list_fallback() # Fallback
+        return get_stock_list_fallback() # 降级处理
 
 def get_stock_list_fallback() -> List[Dict[str, str]]:
-    """Fallback list of popular A-share stocks"""
+    """获取热门A股列表作为备选方案 (Fallback)"""
     stocks = [
         ("600519", "贵州茅台"), ("000858", "五粮液"), ("601318", "中国平安"), ("600036", "招商银行"),
         ("002594", "比亚迪"), ("300750", "宁德时代"), ("000001", "平安银行"), ("600900", "长江电力"),
@@ -44,14 +44,14 @@ def get_stock_list_fallback() -> List[Dict[str, str]]:
 
 def get_stock_list() -> List[Dict[str, str]]:
     """
-    Get list of A-share stocks.
+    获取 A 股股票列表。
     """
     global _STOCK_CACHE
     if _STOCK_CACHE is not None:
         return _STOCK_CACHE
 
     try:
-        # Try to fetch from akshare
+        # 尝试从 akshare 获取
         df = ak.stock_zh_a_spot_em()
         if df.empty:
             _STOCK_CACHE = get_stock_list_fallback()
@@ -76,7 +76,7 @@ def get_stock_list() -> List[Dict[str, str]]:
 
 def get_futures_list() -> List[Dict[str, str]]:
     """
-    Get list of Futures (from futures_contracts.json).
+    获取期货合约列表 (从 futures_contracts.json 加载)。
     """
     global _FUTURES_CACHE
     if _FUTURES_CACHE is not None:
@@ -85,37 +85,37 @@ def get_futures_list() -> List[Dict[str, str]]:
     contracts = load_contracts()
     results = []
     
-    # Sort by code for better UX
+    # 按代码排序以提供更好的用户体验
     sorted_codes = sorted(contracts.keys())
     
     for code in sorted_codes:
         info = contracts[code]
         name = info.get('name', code)
-        # Create "Main Contract" (0 suffix) entry
-        # Usually users trade the main continuous contract
+        # 创建 "主力合约" (0 后缀) 条目
+        # 通常用户交易连续主力合约
         symbol = f"{code}0"
         label = f"{symbol} {name}主力"
         results.append({"value": symbol, "label": label})
 
-    # If cache is empty (json not found), fallback or just return empty
+    # 如果缓存为空 (json 未找到)，使用降级方案或返回空
     _FUTURES_CACHE = results
     return results
 
 def get_symbol_name(symbol: str, market: str) -> str:
     """
-    Get symbol name from metadata.
+    从元数据中获取标的名称。
     """
     try:
         data = []
         if market == 'stock':
-            # Check HS300 first then full list
+            # 先查 HS300，再查全列表
             if _HS300_CACHE:
                 for item in _HS300_CACHE:
                     if item['value'] == symbol:
                         parts = item['label'].split(' ')
                         return parts[1] if len(parts) > 1 else item['label']
             
-            # If not in HS300 or cache empty, try full list
+            # 如果 HS300 中未找到或缓存为空，尝试全列表
             data = get_stock_list()
         else:
             data = get_futures_list()
@@ -127,45 +127,67 @@ def get_symbol_name(symbol: str, market: str) -> str:
                     return parts[1]
                 return item['label']
                 
-        # If not found in cache and is stock, maybe try fetching single
+        # 如果缓存中未找到且为股票，可能需要单独获取 (暂未实现)
         if market == 'stock' and not data:
-             # Just return symbol if not found
+             # 如果未找到，返回原代码
              pass
              
     except Exception as e:
         print(f"Error getting symbol name: {e}")
         
     return symbol
-    if not results:
-        # Fallback to a few common ones if json is missing
-        return [
-            {"value": "RB0", "label": "RB0 螺纹钢主力"},
-            {"value": "I0", "label": "I0 铁矿石主力"},
-            {"value": "CU0", "label": "CU0 沪铜主力"},
-        ]
+
+def get_symbols_info_batch(symbols: List[str], market: str) -> List[Dict[str, str]]:
+    """
+    批量获取标的信息 (value, label)。
+    针对批量查询进行了优化。
+    """
+    if not symbols:
+        return []
         
-    _FUTURES_CACHE = results
+    # 获取该市场所有可用标的
+    if market == 'stock':
+        # 优先尝试 HS300 (数据量小)
+        all_data = get_hs300_list()
+        # 如果有标的未找到，则获取全量列表
+        found_values = {item['value'] for item in all_data}
+        if any(s not in found_values for s in symbols):
+            all_data = get_stock_list()
+    else:
+        all_data = get_futures_list()
+        
+    # 创建映射表以实现 O(1) 查找
+    data_map = {item['value']: item for item in all_data}
+    
+    results = []
+    for s in symbols:
+        if s in data_map:
+            results.append(data_map[s])
+        else:
+            # 如果未找到，仅返回代码作为 label
+            results.append({"value": s, "label": s})
+            
     return results
 
 def get_default_hot_symbols() -> List[str]:
     """
-    Return default hot symbols configured in backend.
+    返回后端配置的默认热门品种。
     """
     return ['RB0', 'I0', 'CU0', 'M0', 'TA0']
 
-# Deprecated: These functions are now in futures_master.py
-# Keeping them here as wrappers if needed, but better to use futures_master directly in other modules.
+# 已废弃: 这些函数现在位于 futures_master.py 中
+# 保留它们作为包装器以防需要，但建议在其他模块中直接使用 futures_master。
 
 
 def search_symbols(query: str, market: str = "stock") -> List[Dict[str, str]]:
     """
-    Search symbols by code or name.
+    通过代码或名称搜索标的。
     """
     query = query.lower()
     data = []
     
     if market == "stock":
-        # Check for special query commands
+        # 检查特殊查询指令
         if query == "hs300":
             return get_hs300_list()
             
