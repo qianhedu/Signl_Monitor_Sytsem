@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 from typing import List, Dict, Any
-from .indicators import get_market_data, calculate_dkx
+from .indicators import get_market_data, calculate_dkx, calculate_ma
 from .metadata import get_stock_list, get_futures_list
 from .futures_master import (
     get_multiplier as get_futures_multiplier, 
@@ -226,6 +226,485 @@ def resample_data(df: pd.DataFrame, period: str) -> pd.DataFrame:
         return resampled
     
     return df
+
+def safe_round(value, ndigits=2):
+    """Safely round a value, handling NaN/Inf by returning 0."""
+    if value is None:
+        return 0
+    if isinstance(value, (float, np.floating)):
+        if np.isnan(value) or np.isinf(value):
+            return 0
+    try:
+        return round(value, ndigits)
+    except:
+        return 0
+
+def run_backtest_ma(
+    symbols: List[str],
+    market: str,
+    period: str,
+    start_time: str,
+    end_time: str,
+    initial_capital: float = 100000.0,
+    lot_size: int = 20,
+    short_period: int = 5,
+    long_period: int = 20
+) -> Dict[str, Any]:
+    """
+    运行双均线策略回测。
+    """
+    results = []
+    commission_rate = 0.0003 
+    
+    for symbol in symbols:
+        multiplier = 100 if market == 'stock' else get_futures_multiplier(symbol)
+        
+        # 1. 获取数据
+        custom_periods = ['90', '120', '180', '240']
+        fetch_period = period
+        need_resample = False
+        
+        if period in custom_periods:
+            need_resample = True
+            if period == '90':
+                fetch_period = '30'
+            elif period == '180':
+                fetch_period = '30'
+            else:
+                fetch_period = '60'
+        
+        df = get_market_data(symbol, market=market, period=fetch_period)
+        
+        if df.empty:
+            print(f"警告: 未获取到 {symbol} 的数据")
+            continue
+
+        if market == 'futures':
+            df = filter_trading_hours(df, symbol)
+        
+        if need_resample:
+             df = resample_data(df, period)
+        
+        if market == 'futures' and period in ['weekly', 'monthly']:
+            if df.empty:
+                df = get_market_data(symbol, market=market, period='daily')
+                df = resample_data(df, period)
+        
+        if df.empty:
+            continue
+            
+        try:
+            if not isinstance(df.index, pd.DatetimeIndex):
+                df.index = pd.to_datetime(df.index)
+            df.sort_index(inplace=True)
+            
+            if start_time and end_time:
+                try:
+                    ts_start = pd.to_datetime(start_time)
+                    ts_end = pd.to_datetime(end_time)
+                    index_tz = df.index.tz
+                    
+                    if index_tz is None:
+                        if ts_start.tzinfo is not None:
+                            ts_start = ts_start.tz_localize(None)
+                            ts_end = ts_end.tz_localize(None)
+                    else:
+                        if ts_start.tzinfo is None:
+                            ts_start = ts_start.tz_localize(index_tz)
+                            ts_end = ts_end.tz_localize(index_tz)
+                        else:
+                            ts_start = ts_start.tz_convert(index_tz)
+                            ts_end = ts_end.tz_convert(index_tz)
+                            
+                    mask = (df.index >= ts_start) & (df.index <= ts_end)
+                    df = df.loc[mask].copy()
+                except Exception as filter_err:
+                    print(f"{symbol} 时间过滤错误: {filter_err}")
+                    df = pd.DataFrame()
+        except Exception as e:
+            print(f"{symbol} 时间过滤错误: {e}")
+            continue
+            
+        if df.empty:
+            continue
+
+        # 2. 计算指标 (Calculate MA)
+        df = calculate_ma(df, short_period=short_period, long_period=long_period)
+        
+        # 3. 模拟交易
+        trades = []
+        equity_curve = []
+        position = 0 
+        entry_price = 0.0
+        entry_time = None
+        current_balance = initial_capital
+        trade_count = 0
+        trade_quantity_value = lot_size * multiplier
+        margin_rate = get_margin_rate(symbol)
+        max_margin_used = 0.0
+        min_tick = get_min_tick(symbol)
+        slippage_ticks = 1
+        slippage_val = min_tick * slippage_ticks
+
+        for i in range(1, len(df)):
+            curr_idx = df.index[i]
+            # MA 信号逻辑
+            if 'ma_short' not in df.columns or 'ma_long' not in df.columns:
+                break
+                
+            prev_short = df['ma_short'].iloc[i-1]
+            prev_long = df['ma_long'].iloc[i-1]
+            curr_short = df['ma_short'].iloc[i]
+            curr_long = df['ma_long'].iloc[i]
+            curr_price = df['close'].iloc[i]
+            
+            if position != 0:
+                current_margin = entry_price * trade_quantity_value * margin_rate
+                max_margin_used = max(max_margin_used, current_margin)
+            
+            if pd.isna(curr_short) or pd.isna(curr_long) or pd.isna(prev_short):
+                equity_curve.append({'date': curr_idx.strftime('%Y-%m-%d %H:%M'), 'equity': current_balance})
+                continue
+
+            # 金叉: 短线上穿长线
+            golden_cross = (prev_short < prev_long) and (curr_short > curr_long)
+            # 死叉: 短线下穿长线
+            dead_cross = (prev_short > prev_long) and (curr_short < curr_long)
+            
+            if golden_cross:
+                if position == -1:
+                    # 平空
+                    real_close_price = curr_price + slippage_val
+                    pnl = (entry_price - real_close_price) * trade_quantity_value
+                    comm = real_close_price * trade_quantity_value * commission_rate
+                    net_pnl = pnl - comm
+                    current_balance += net_pnl
+                    
+                    trades.append({
+                        'id': trade_count + 1,
+                        'time': curr_idx.strftime('%Y-%m-%d %H:%M'),
+                        'symbol': symbol,
+                        'direction': '平空',
+                        'price': curr_price,
+                        'real_price': real_close_price,
+                        'slippage': slippage_val,
+                        'quantity': lot_size,
+                        'commission': comm,
+                        'profit': net_pnl,
+                        'cumulative_profit': current_balance - initial_capital,
+                        'position_dir': 0,
+                        'funds_occupied': 0,
+                        'risk_degree': 0,
+                        'daily_balance': current_balance,
+                        'order_type': '限价',
+                        'counterparty': '模拟撮合'
+                    })
+                    trade_count += 1
+                    
+                    # 开多
+                    real_open_price = curr_price + slippage_val
+                    comm_open = real_open_price * trade_quantity_value * commission_rate
+                    current_balance -= comm_open
+                    position = 1
+                    entry_price = real_open_price
+                    entry_time = curr_idx
+                    
+                    curr_margin = real_open_price * multiplier * margin_rate * lot_size
+                    risk_deg = curr_margin / current_balance if current_balance > 0 else 0
+                    
+                    trades.append({
+                        'id': trade_count + 1,
+                        'time': curr_idx.strftime('%Y-%m-%d %H:%M'),
+                        'symbol': symbol,
+                        'direction': '开多',
+                        'price': curr_price,
+                        'real_price': real_open_price,
+                        'slippage': slippage_val,
+                        'quantity': lot_size,
+                        'commission': comm_open,
+                        'profit': -comm_open,
+                        'cumulative_profit': current_balance - initial_capital,
+                        'position_dir': 1,
+                        'funds_occupied': curr_margin,
+                        'risk_degree': risk_deg,
+                        'daily_balance': current_balance,
+                        'order_type': '限价',
+                        'counterparty': '模拟撮合'
+                    })
+                    trade_count += 1
+                    
+                elif position == 0:
+                    # 开多
+                    real_open_price = curr_price + slippage_val
+                    comm_open = real_open_price * trade_quantity_value * commission_rate
+                    current_balance -= comm_open
+                    position = 1
+                    entry_price = real_open_price
+                    entry_time = curr_idx
+                    
+                    curr_margin = entry_price * trade_quantity_value * margin_rate
+                    risk_deg = curr_margin / current_balance if current_balance > 0 else 0
+                    
+                    trades.append({
+                        'id': trade_count + 1,
+                        'time': curr_idx.strftime('%Y-%m-%d %H:%M'),
+                        'symbol': symbol,
+                        'direction': '开多',
+                        'price': curr_price,
+                        'real_price': real_open_price,
+                        'slippage': slippage_val,
+                        'quantity': lot_size,
+                        'commission': comm_open,
+                        'profit': -comm_open,
+                        'cumulative_profit': current_balance - initial_capital,
+                        'position_dir': 1,
+                        'funds_occupied': curr_margin,
+                        'risk_degree': risk_deg,
+                        'daily_balance': current_balance,
+                        'order_type': '限价',
+                        'counterparty': '模拟撮合'
+                    })
+                    trade_count += 1
+                    
+            elif dead_cross:
+                if position == 1:
+                    # 平多
+                    real_close_price = curr_price - slippage_val
+                    pnl = (real_close_price - entry_price) * trade_quantity_value
+                    comm = real_close_price * trade_quantity_value * commission_rate
+                    net_pnl = pnl - comm
+                    current_balance += net_pnl
+                    
+                    trades.append({
+                        'id': trade_count + 1,
+                        'time': curr_idx.strftime('%Y-%m-%d %H:%M'),
+                        'symbol': symbol,
+                        'direction': '平多',
+                        'price': curr_price,
+                        'real_price': real_close_price,
+                        'slippage': slippage_val,
+                        'quantity': lot_size,
+                        'commission': comm,
+                        'profit': net_pnl,
+                        'cumulative_profit': current_balance - initial_capital,
+                        'position_dir': 0,
+                        'funds_occupied': 0,
+                        'risk_degree': 0,
+                        'daily_balance': current_balance,
+                        'order_type': '限价',
+                        'counterparty': '模拟撮合'
+                    })
+                    trade_count += 1
+                    
+                    # 开空
+                    real_open_price = curr_price - slippage_val
+                    comm_open = real_open_price * trade_quantity_value * commission_rate
+                    current_balance -= comm_open
+                    position = -1
+                    entry_price = real_open_price
+                    entry_time = curr_idx
+                    
+                    curr_margin = entry_price * trade_quantity_value * margin_rate
+                    risk_deg = curr_margin / current_balance if current_balance > 0 else 0
+                    
+                    trades.append({
+                        'id': trade_count + 1,
+                        'time': curr_idx.strftime('%Y-%m-%d %H:%M'),
+                        'symbol': symbol,
+                        'direction': '开空',
+                        'price': curr_price,
+                        'real_price': real_open_price,
+                        'slippage': slippage_val,
+                        'quantity': lot_size,
+                        'commission': comm_open,
+                        'profit': -comm_open,
+                        'cumulative_profit': current_balance - initial_capital,
+                        'position_dir': -1,
+                        'funds_occupied': curr_margin,
+                        'risk_degree': risk_deg,
+                        'daily_balance': current_balance,
+                        'order_type': '限价',
+                        'counterparty': '模拟撮合'
+                    })
+                    trade_count += 1
+                    
+                elif position == 0:
+                    # 开空
+                    real_open_price = curr_price - slippage_val
+                    comm_open = real_open_price * trade_quantity_value * commission_rate
+                    current_balance -= comm_open
+                    position = -1
+                    entry_price = real_open_price
+                    entry_time = curr_idx
+                    
+                    curr_margin = entry_price * trade_quantity_value * margin_rate
+                    risk_deg = curr_margin / current_balance if current_balance > 0 else 0
+                    
+                    trades.append({
+                        'id': trade_count + 1,
+                        'time': curr_idx.strftime('%Y-%m-%d %H:%M'),
+                        'symbol': symbol,
+                        'direction': '开空',
+                        'price': curr_price,
+                        'real_price': real_open_price,
+                        'slippage': slippage_val,
+                        'quantity': lot_size,
+                        'commission': comm_open,
+                        'profit': -comm_open,
+                        'cumulative_profit': current_balance - initial_capital,
+                        'position_dir': -1,
+                        'funds_occupied': curr_margin,
+                        'risk_degree': risk_deg,
+                        'daily_balance': current_balance,
+                        'order_type': '限价',
+                        'counterparty': '模拟撮合'
+                    })
+                    trade_count += 1
+            
+            equity_curve.append({'date': curr_idx.strftime('%Y-%m-%d %H:%M'), 'equity': current_balance})
+            
+        # 4. 统计指标
+        final_equity = current_balance
+        total_profit = final_equity - initial_capital
+        total_return = (total_profit / initial_capital) * 100
+        
+        days = (df.index[-1] - df.index[0]).days
+        if days > 0 and final_equity > 0 and initial_capital > 0:
+            try:
+                annualized_return = (pow(final_equity / initial_capital, 365 / days) - 1) * 100
+            except:
+                annualized_return = 0
+        else:
+            annualized_return = 0
+            
+        winning_trades = [t for t in trades if t['profit'] > 0 and t['direction'] in ['平多', '平空']]
+        losing_trades = [t for t in trades if t['profit'] <= 0 and t['direction'] in ['平多', '平空']]
+        closed_trades = [t for t in trades if t['direction'] in ['平多', '平空']]
+        total_closed_trades = len(closed_trades)
+        
+        win_rate = (len(winning_trades) / total_closed_trades * 100) if total_closed_trades > 0 else 0
+        
+        equities = [e['equity'] for e in equity_curve]
+        max_drawdown = 0
+        if equities:
+            peak = equities[0]
+            for e in equities:
+                if e > peak:
+                    peak = e
+                dd = (peak - e) / peak * 100
+                if dd > max_drawdown:
+                    max_drawdown = dd
+                    
+        df_equity = pd.DataFrame(equity_curve)
+        sharpe_ratio = 0
+        if not df_equity.empty:
+            df_equity['date'] = pd.to_datetime(df_equity['date'])
+            df_equity.set_index('date', inplace=True)
+            daily_returns = df_equity['equity'].resample('D').last().ffill().pct_change().dropna()
+            if not daily_returns.empty and daily_returns.std() != 0:
+                sharpe_ratio = (daily_returns.mean() / daily_returns.std()) * (252 ** 0.5)
+                
+        realized_profit = sum(t['profit'] for t in trades if t['direction'] in ['平多', '平空'])
+        floating_profit = 0
+        if position != 0:
+            last_price = df['close'].iloc[-1]
+            if position == 1:
+                floating_profit = (last_price - entry_price) * trade_quantity_value
+            else:
+                floating_profit = (entry_price - last_price) * trade_quantity_value
+                
+        avg_profit = realized_profit / total_closed_trades if total_closed_trades > 0 else 0
+        avg_win = sum(t['profit'] for t in winning_trades) / len(winning_trades) if winning_trades else 0
+        avg_loss = sum(t['profit'] for t in losing_trades) / len(losing_trades) if losing_trades else 0
+        profit_factor = abs(sum(t['profit'] for t in winning_trades) / sum(t['profit'] for t in losing_trades)) if losing_trades and sum(t['profit'] for t in losing_trades) != 0 else float('inf')
+        
+        max_consecutive_wins = 0
+        max_consecutive_losses = 0
+        current_wins = 0
+        current_losses = 0
+        for t in closed_trades:
+            if t['profit'] > 0:
+                current_wins += 1
+                current_losses = 0
+                max_consecutive_wins = max(max_consecutive_wins, current_wins)
+            else:
+                current_losses += 1
+                current_wins = 0
+                max_consecutive_losses = max(max_consecutive_losses, current_losses)
+
+        return_on_margin = (total_profit / max_margin_used * 100) if max_margin_used > 0 else 0
+        
+        avg_volume = df['volume'].mean()
+        avg_price_val = df['close'].mean()
+        strategy_capacity = avg_volume * avg_price_val * multiplier * 0.01 
+        
+        max_daily_loss = 0
+        if not df_equity.empty:
+            daily_pnl = df_equity['equity'].resample('D').last().diff()
+            if not daily_pnl.empty:
+                max_daily_loss = daily_pnl.min()
+
+        statistics = {
+            'total_trades': total_closed_trades,
+            'win_rate': safe_round(win_rate, 2),
+            'max_drawdown': safe_round(max_drawdown, 2),
+            'sharpe_ratio': safe_round(sharpe_ratio, 2),
+            'total_return': safe_round(total_return, 2),
+            'annualized_return': safe_round(annualized_return, 2),
+            'total_profit': safe_round(total_profit, 2),
+            'final_equity': safe_round(final_equity, 2),
+            'realized_profit': safe_round(realized_profit, 2),
+            'floating_profit': safe_round(floating_profit, 2),
+            'avg_profit': safe_round(avg_profit, 2),
+            'avg_win': safe_round(avg_win, 2),
+            'avg_loss': safe_round(avg_loss, 2),
+            'profit_factor': safe_round(profit_factor, 2) if profit_factor != float('inf') else 999,
+            'max_consecutive_wins': max_consecutive_wins,
+            'max_consecutive_losses': max_consecutive_losses,
+            'return_on_margin': safe_round(return_on_margin, 2),
+            'max_margin_used': safe_round(max_margin_used, 2),
+            'avg_slippage': safe_round(slippage_val, 2),
+            'max_slippage': safe_round(slippage_val, 2),
+            'strategy_capacity': safe_round(strategy_capacity, 0),
+            'max_daily_loss': safe_round(max_daily_loss, 2)
+        }
+        
+        chart_data = []
+        
+        for idx, row in df.iterrows():
+            def get_val(val):
+                if pd.isna(val) or np.isinf(val):
+                    return None
+                return val
+
+            chart_data.append({
+                'date': idx.strftime('%Y-%m-%d %H:%M'),
+                'open': get_val(row['open']),
+                'close': get_val(row['close']),
+                'low': get_val(row['low']),
+                'high': get_val(row['high']),
+                'ma_short': get_val(row['ma_short']),
+                'ma_long': get_val(row['ma_long']),
+                'volume': get_val(row['volume'])
+            })
+            
+        results.append({
+            'symbol': symbol,
+            'symbol_name': get_symbol_name(symbol, market),
+            'trades': trades,
+            'statistics': statistics,
+            'chart_data': chart_data
+        })
+        
+    # Sort Results
+    # Default Rule: Return Rate (Desc) -> Profit Factor (Desc) -> Symbol (Asc)
+    results.sort(key=lambda x: (
+        -x['statistics']['return_on_margin'], 
+        -x['statistics']['profit_factor'], 
+        x['symbol']
+    ))
+
+    return results
 
 def run_backtest_dkx(
     symbols: List[str],
@@ -808,7 +1287,16 @@ def run_backtest_dkx(
         x['symbol']
     ))
 
-    return {'results': results}
+    # Sort Results
+    # Default Rule: Return Rate (Desc) -> Profit Factor (Desc) -> Symbol (Asc)
+    # return_on_margin, profit_factor
+    results.sort(key=lambda x: (
+        -x['statistics']['return_on_margin'], 
+        -x['statistics']['profit_factor'], 
+        x['symbol']
+    ))
+
+    return results
 
 def calculate_statistics(trades: List[Dict], duration_days: int) -> Dict:
     if not trades:

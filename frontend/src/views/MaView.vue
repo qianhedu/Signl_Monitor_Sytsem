@@ -531,7 +531,7 @@ searchSymbols('')
       </template>
       <el-form :inline="true" :model="form" class="demo-form-inline">
         <el-form-item label="市场">
-          <el-select v-model="form.market" placeholder="选择市场" style="width: 120px" @change="() => { form.symbols = []; searchSymbols('') }">
+          <el-select v-model="form.market" placeholder="选择市场" style="width: 100px" @change="() => { form.symbols = []; searchSymbols('') }">
             <el-option label="股票" value="stock" />
             <el-option label="期货" value="futures" />
           </el-select>

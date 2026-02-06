@@ -3,6 +3,7 @@ import Layout from '../components/Layout.vue'
 import DkxView from '../views/DkxView.vue'
 import MaView from '../views/MaView.vue'
 import DkxBacktestView from '../views/DkxBacktestView.vue'
+import MaBacktestView from '../views/MaBacktestView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -32,6 +33,12 @@ const router = createRouter({
           name: 'ma',
           component: MaView,
           meta: { title: '双均线策略' }
+        },
+        {
+          path: 'ma-backtest',
+          name: 'ma-backtest',
+          component: MaBacktestView,
+          meta: { title: '双均线策略统计' }
         }
       ]
     }

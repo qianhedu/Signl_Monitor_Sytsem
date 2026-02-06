@@ -57,7 +57,9 @@ const form = reactive({
   period: '60',
   dateRange: [] as string[],
   initialCapital: 100000,
-  lotSize: 20
+  lotSize: 20,
+  shortPeriod: 21,
+  longPeriod: 55
 })
 
 // Date shortcuts
@@ -118,7 +120,7 @@ const sectionState = reactive({
 })
 
 const loadSectionState = () => {
-    const saved = localStorage.getItem('dkxSectionState')
+    const saved = localStorage.getItem('maSectionState')
     if (saved) {
         try {
             const parsed = JSON.parse(saved)
@@ -130,7 +132,7 @@ loadSectionState()
 
 const toggleSection = (key: keyof typeof sectionState) => {
     sectionState[key] = !sectionState[key]
-    localStorage.setItem('dkxSectionState', JSON.stringify(sectionState))
+    localStorage.setItem('maSectionState', JSON.stringify(sectionState))
 }
 
 // Hot Symbols Default (will be fetched from backend)
@@ -297,27 +299,47 @@ const runBacktest = async () => {
   results.value = []
   
   try {
-    const response = await axios.post('/api/backtest/dkx', {
+    const response = await axios.post('/api/backtest/ma', {
       symbols: form.symbols,
       market: form.market,
       period: form.period,
       start_time: form.dateRange[0],
       end_time: form.dateRange[1],
       initial_capital: form.initialCapital,
-      lot_size: form.lotSize
+      lot_size: form.lotSize,
+      short_period: form.shortPeriod,
+      long_period: form.longPeriod
     })
     
-    results.value = response.data.results
-    
-    if (results.value.length > 0) {
-      currentSymbol.value = results.value[0].symbol
-      await nextTick()
-      initChart(results.value[0])
+    // Handle response structure (list or object with results)
+    if (Array.isArray(response.data)) {
+        results.value = response.data
+    } else if (response.data && Array.isArray(response.data.results)) {
+        results.value = response.data.results
+    } else {
+        results.value = []
+        console.warn('Unexpected response format:', response.data)
     }
     
-    ElMessage.success('回测完成')
-  } catch (error) {
-    ElMessage.error('回测失败: ' + error)
+    if (results.value && results.value.length > 0) {
+      currentSymbol.value = results.value[0].symbol
+      await nextTick()
+      try {
+        initChart(results.value[0])
+      } catch (chartError) {
+        console.error('Chart initialization failed:', chartError)
+        ElMessage.warning('图表渲染出错，但数据已加载')
+      }
+    } else {
+      ElMessage.info('未生成回测结果，请检查数据或参数')
+    }
+    
+    if (results.value.length > 0) {
+        ElMessage.success('回测完成')
+    }
+  } catch (error: any) {
+    console.error('Backtest error:', error)
+    ElMessage.error('回测失败: ' + (error.response?.data?.detail || error.message || '未知错误'))
   } finally {
     loading.value = false
   }
@@ -389,8 +411,8 @@ const initChart = (result: BacktestResult) => {
   
   const dates = data.map(item => item.date)
   const kLineData = data.map(item => [item.open, item.close, item.low, item.high])
-  const dkxData = data.map(item => item.dkx)
-  const madkxData = data.map(item => item.madkx)
+  const maShortData = data.map(item => item.ma_short)
+  const maLongData = data.map(item => item.ma_long)
   
   // Prepare Markers
   const markers: any[] = []
@@ -469,7 +491,7 @@ const initChart = (result: BacktestResult) => {
       trigger: 'axis',
       axisPointer: { type: 'cross' }
     },
-    legend: { data: ['K线', 'DKX', 'MADKX'] },
+    legend: { data: ['K线', '短期均线', '长期均线'] },
     grid: { left: '3%', right: '3%', bottom: '30px', top: '40px', containLabel: true },
     xAxis: { type: 'category', data: dates, scale: true },
     yAxis: { scale: true, splitArea: { show: true } },
@@ -490,16 +512,16 @@ const initChart = (result: BacktestResult) => {
         }
       },
       {
-        name: 'DKX',
+        name: '短期均线',
         type: 'line',
-        data: dkxData,
+        data: maShortData,
         smooth: true,
         lineStyle: { width: 2, color: '#1890ff' } // Blue
       },
       {
-        name: 'MADKX',
+        name: '长期均线',
         type: 'line',
-        data: madkxData,
+        data: maLongData,
         smooth: true,
         lineStyle: { width: 2, type: 'dashed', color: '#faad14' } // Gold/Orange
       }
@@ -557,7 +579,7 @@ const exportExcel = () => {
   const name = currentRes ? currentRes.symbol_name : ''
   const url = URL.createObjectURL(blob)
   link.setAttribute("href", url)
-  link.setAttribute("download", `backtest_${currentSymbol.value}_${name}.csv`)
+  link.setAttribute("download", `ma_backtest_${currentSymbol.value}_${name}.csv`)
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
@@ -567,11 +589,11 @@ searchSymbols('')
 </script>
 
 <template>
-  <div class="dkx-backtest-view">
+  <div class="ma-backtest-view">
     <el-card class="box-card">
       <template #header>
         <div class="card-header">
-          <span>DKX 信号策略回测</span>
+          <span>双均线策略回测</span>
         </div>
       </template>
       
@@ -641,6 +663,14 @@ searchSymbols('')
         
         <el-form-item label="开仓手数">
           <el-input-number v-model="form.lotSize" :min="1" :max="1000" style="width: 100px" />
+        </el-form-item>
+
+        <el-form-item label="短期均线">
+          <el-input-number v-model="form.shortPeriod" :min="1" :max="100" style="width: 100px" />
+        </el-form-item>
+
+        <el-form-item label="长期均线">
+          <el-input-number v-model="form.longPeriod" :min="2" :max="200" style="width: 100px" />
         </el-form-item>
         
         <el-form-item label="时间范围">
@@ -868,7 +898,7 @@ searchSymbols('')
 </template>
 
 <style scoped>
-.dkx-backtest-view {
+.ma-backtest-view {
   padding: 20px;
 }
 .card-header {

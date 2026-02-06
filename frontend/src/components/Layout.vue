@@ -54,6 +54,10 @@ onMounted(() => {
             <el-icon><TrendCharts /></el-icon>
             <template #title>双均线策略</template>
           </el-menu-item>
+          <el-menu-item index="/ma-backtest">
+            <el-icon><DataAnalysis /></el-icon>
+            <template #title>双均线策略统计</template>
+          </el-menu-item>
         </el-menu>
       </el-aside>
       <el-container>
