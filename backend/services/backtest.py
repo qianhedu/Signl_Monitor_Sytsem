@@ -3,6 +3,7 @@ import numpy as np
 from datetime import datetime, timedelta
 from typing import List, Dict, Any
 from .indicators import get_market_data, calculate_dkx, calculate_ma
+from .resample_utils import resample_data
 from .metadata import get_stock_list, get_futures_list
 from .futures_master import (
     get_multiplier as get_futures_multiplier, 
@@ -85,20 +86,7 @@ def filter_trading_hours(df: pd.DataFrame, symbol: str) -> pd.DataFrame:
             
     return filtered_df
 
-def resample_data(df: pd.DataFrame, period: str) -> pd.DataFrame:
-    """
-    将数据重采样为自定义周期。
-    支持周线/月线及自定义分钟周期（如90, 120, 180, 240分钟）。
-    
-    针对 180 分钟等长周期，采用了基于交易日 (Trading Day) 和累计交易时间 (Cumulative Trading Time) 
-    的聚合算法，以确保与同花顺等主流软件的算法保持一致。
-    
-    主要逻辑：
-    1. 识别交易日：将夜盘时间 (21:00起) 归入下一个自然日，确保夜盘与次日日盘合并为同一交易日。
-    2. 计算累计时间：在同一交易日内，累计每一根基础K线的时长。
-    3. 周期切分：当累计时长达到目标周期 (如180分钟) 时，切分生成一根新K线。
-    4. 跨日处理：不同交易日之间强制断开，确保K线不会跨越交易日边界。
-    """
+
     if df.empty:
         return df
         

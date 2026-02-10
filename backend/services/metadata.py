@@ -94,7 +94,7 @@ def get_futures_list() -> List[Dict[str, str]]:
         # 创建 "主力合约" (0 后缀) 条目
         # 通常用户交易连续主力合约
         symbol = f"{code}0"
-        label = f"{symbol} {name}主力"
+        label = f"{symbol} {name}主连"
         results.append({"value": symbol, "label": label})
 
     # 如果缓存为空 (json 未找到)，使用降级方案或返回空

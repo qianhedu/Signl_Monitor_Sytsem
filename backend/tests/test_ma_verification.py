@@ -3,8 +3,14 @@ import unittest
 from unittest.mock import patch, MagicMock
 import pandas as pd
 import numpy as np
+import sys
+import os
 from datetime import datetime, timedelta
-from backend.services.backtest import run_backtest_ma
+
+# Add backend directory to path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from services.backtest import run_backtest_ma
 
 class TestMaVerification(unittest.TestCase):
     
@@ -46,11 +52,11 @@ class TestMaVerification(unittest.TestCase):
         
         return df
 
-    @patch('backend.services.backtest.get_market_data')
-    @patch('backend.services.backtest.get_futures_multiplier')
-    @patch('backend.services.backtest.get_margin_rate')
-    @patch('backend.services.backtest.get_min_tick')
-    @patch('backend.services.backtest.get_trading_hours_type')
+    @patch('services.backtest.get_market_data')
+    @patch('services.backtest.get_futures_multiplier')
+    @patch('services.backtest.get_margin_rate')
+    @patch('services.backtest.get_min_tick')
+    @patch('services.backtest.get_trading_hours_type')
     def test_uptrend_verification(self, mock_hours, mock_tick, mock_margin, mock_mult, mock_data):
         # Setup Mocks
         mock_hours.return_value = 'late_night' # No filtering
@@ -102,11 +108,11 @@ class TestMaVerification(unittest.TestCase):
         # Let's check floating profit.
         self.assertGreater(stats['floating_profit'], 0, "Floating profit should be positive in uptrend")
         
-    @patch('backend.services.backtest.get_market_data')
-    @patch('backend.services.backtest.get_futures_multiplier')
-    @patch('backend.services.backtest.get_margin_rate')
-    @patch('backend.services.backtest.get_min_tick')
-    @patch('backend.services.backtest.get_trading_hours_type')
+    @patch('services.backtest.get_market_data')
+    @patch('services.backtest.get_futures_multiplier')
+    @patch('services.backtest.get_margin_rate')
+    @patch('services.backtest.get_min_tick')
+    @patch('services.backtest.get_trading_hours_type')
     def test_choppy_verification(self, mock_hours, mock_tick, mock_margin, mock_mult, mock_data):
         mock_hours.return_value = 'late_night'
         mock_tick.return_value = 0.2
@@ -133,11 +139,11 @@ class TestMaVerification(unittest.TestCase):
         # Win rate might be low
         # self.assertLess(stats['win_rate'], 50) # Not guaranteed but likely
         
-    @patch('backend.services.backtest.get_market_data')
-    @patch('backend.services.backtest.get_futures_multiplier')
-    @patch('backend.services.backtest.get_margin_rate')
-    @patch('backend.services.backtest.get_min_tick')
-    @patch('backend.services.backtest.get_trading_hours_type')
+    @patch('services.backtest.get_market_data')
+    @patch('services.backtest.get_futures_multiplier')
+    @patch('services.backtest.get_margin_rate')
+    @patch('services.backtest.get_min_tick')
+    @patch('services.backtest.get_trading_hours_type')
     def test_manual_calculation_verification(self, mock_hours, mock_tick, mock_margin, mock_mult, mock_data):
         """
         Precise verification against manual calculation.

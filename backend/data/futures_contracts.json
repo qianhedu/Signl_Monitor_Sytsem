@@ -1,904 +1,1773 @@
 {
   "RB": {
-    "name": "螺纹钢连续",
+    "name": "螺纹钢",
     "exchange": "SHFE",
     "multiplier": 10.0,
     "min_tick": 1.0,
-    "quote_unit": "元(人民币/吨)",
+    "quote_unit": "10吨/手",
     "margin_rate": 0.07,
     "trading_hours": "每周一至周五上午9:00－10:15 10:30-11：30 下午13:30－15:00 连续交易时间：21：00至23:00",
     "night_end": "23:00",
-    "main_contract": "RB0"
+    "main_contract": "RB0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-23:00"
+    ],
+    "last_updated": "2026-02-10T10:48:09.371968",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441196",
+    "isHidden": false
   },
   "I": {
-    "name": "铁矿石连续",
+    "name": "铁矿石",
     "exchange": "DCE",
     "multiplier": 100.0,
     "min_tick": 0.5,
-    "quote_unit": "元（人民币）/吨",
+    "quote_unit": "100吨/手",
     "margin_rate": 0.15,
     "trading_hours": "每周一至周五上午9:00－10:15 10:30-11：30 下午13:30－15:00 连续交易时间：21：00至23:00",
     "night_end": "23:00",
-    "main_contract": "I0"
+    "main_contract": "I0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-23:00"
+    ],
+    "last_updated": "2026-02-10T10:48:09.630574",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441206",
+    "isHidden": false
   },
   "CU": {
-    "name": "铜连续",
+    "name": "沪铜",
     "exchange": "SHFE",
     "multiplier": 5.0,
     "min_tick": 10.0,
-    "quote_unit": "元(人民币/吨)",
+    "quote_unit": "5吨/手",
     "margin_rate": 0.09,
     "trading_hours": "每周一至周五上午9:00－10:15 10:30-11：30 下午13:30－15:00 连续交易时间：21：00至次日1:00",
     "night_end": "01:00",
-    "main_contract": "CU0"
+    "main_contract": "CU0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-24:00",
+      "00:00-01:00"
+    ],
+    "last_updated": "2026-02-10T10:48:09.886915",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441223",
+    "isHidden": false
   },
   "M": {
-    "name": "豆粕连续",
+    "name": "豆粕",
     "exchange": "DCE",
     "multiplier": 10.0,
     "min_tick": 1.0,
-    "quote_unit": "元(人民币/吨)",
+    "quote_unit": "10吨/手",
     "margin_rate": 0.07,
     "trading_hours": "每周一至周五上午9:00－10:15 10:30-11：30 下午13:30－15:00 连续交易时间：21：00至23:00",
     "night_end": "23:00",
-    "main_contract": "M0"
+    "main_contract": "M0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-23:00"
+    ],
+    "last_updated": "2026-02-10T10:48:10.140512",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441230",
+    "isHidden": false
   },
   "TA": {
-    "name": "PTA连续",
+    "name": "PTA",
     "exchange": "CZCE",
     "multiplier": 5.0,
     "min_tick": 2.0,
-    "quote_unit": "元(人民币/吨)",
+    "quote_unit": "5吨/手",
     "margin_rate": 0.06,
     "trading_hours": "每周一至周五上午9:00－10:15 10:30-11：30 下午13:30－15:00 连续交易时间：21：00至23:00",
     "night_end": "23:00",
-    "main_contract": "TA0"
+    "main_contract": "TA0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-23:00"
+    ],
+    "last_updated": "2026-02-10T10:48:10.392870",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441237",
+    "isHidden": false
   },
   "SS": {
-    "name": "不锈钢连续",
+    "name": "不锈钢",
     "exchange": "SHFE",
     "multiplier": 5.0,
     "min_tick": 5.0,
-    "quote_unit": "元(人民币)/吨",
+    "quote_unit": "5吨/手",
     "margin_rate": 0.1,
     "trading_hours": "上午9:00-11:30，下午1:30-3:00和交易所规定的其他交易时间。",
     "night_end": "01:00",
-    "main_contract": "SS0"
+    "main_contract": "SS0",
+    "day_hours": [
+      "09:00-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-24:00",
+      "00:00-01:00"
+    ],
+    "last_updated": "2026-02-10T10:48:10.646001",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441249",
+    "isHidden": false
   },
   "CJ": {
-    "name": "红枣连续",
+    "name": "红枣",
     "exchange": "CZCE",
     "multiplier": 5.0,
     "min_tick": 5.0,
-    "quote_unit": "元（人民币）/吨",
+    "quote_unit": "5吨/手",
     "margin_rate": 0.1,
     "trading_hours": "每周一至周五（北京时间 法定节假日除外） 上午 9：00-11：30， 下午 1：30-3：00 及交易所规定的其他交易时间 最后交易日上午 9：00-11：30",
     "night_end": "",
-    "main_contract": "CJ0"
+    "main_contract": "CJ0",
+    "day_hours": [
+      "09:00-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [],
+    "last_updated": "2026-02-10T10:48:10.913340",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441253",
+    "isHidden": true
   },
   "JD": {
-    "name": "鸡蛋连续",
+    "name": "鲜鸡蛋",
     "exchange": "DCE",
     "multiplier": 5.0,
     "min_tick": 1.0,
-    "quote_unit": "元（人民币）/500千克",
+    "quote_unit": "5吨/手",
     "margin_rate": 0.07,
     "trading_hours": "每周一至周五上午9:00－10:15 10:30-11：30 下午13:30－15:00",
     "night_end": "",
-    "main_contract": "JD0"
+    "main_contract": "JD0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [],
+    "last_updated": "2026-02-10T10:48:11.180172",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441259",
+    "isHidden": true
   },
   "AU": {
-    "name": "黄金连续",
+    "name": "沪金",
     "exchange": "SHFE",
     "multiplier": 1000.0,
     "min_tick": 0.05,
-    "quote_unit": "元(人民币/克)",
+    "quote_unit": "1000克/手",
     "margin_rate": 0.1,
     "trading_hours": "上午9:00－11:30 ，下午1:30－3:00 夜盘为21:00至次日2:30",
     "night_end": "02:30",
-    "main_contract": "AU0"
+    "main_contract": "AU0",
+    "day_hours": [
+      "09:00-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-24:00",
+      "00:00-02:30"
+    ],
+    "last_updated": "2026-02-10T10:48:11.445986",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441269",
+    "isHidden": false
   },
   "SH": {
-    "name": "烧碱连续",
+    "name": "烧碱",
     "exchange": "CZCE",
     "multiplier": 30.0,
     "min_tick": 1.0,
-    "quote_unit": "元(人民币)/吨",
-    "margin_rate": 0.07,
-    "trading_hours": "每周一至周五上午9:00－10:15 10:30-11：30 下午13:30－15:00 连续交易时间：21：00至23:00",
+    "quote_unit": "30吨/手（干吨重量）",
+    "margin_rate": 0.09,
+    "trading_hours": "每周一至周五（北京时间，法定节假日除外） 09:00-10:15、10:30-11:30及交易所规定的其他交易时间 夜盘交易时间为21:00－23:00",
     "night_end": "23:00",
-    "main_contract": "SH0"
+    "main_contract": "SH0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30"
+    ],
+    "night_hours": [
+      "21:00-23:00"
+    ],
+    "last_updated": "2026-02-10T10:48:11.705549",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441275",
+    "isHidden": false
   },
   "AG": {
-    "name": "白银连续",
+    "name": "沪银",
     "exchange": "SHFE",
     "multiplier": 15.0,
     "min_tick": 1.0,
-    "quote_unit": "元(人民币/千克)",
+    "quote_unit": "15千克/手",
     "margin_rate": 0.1,
     "trading_hours": "上午9:00－11:30 ，下午1:30－3:00，夜盘为21:00至次日2:30",
     "night_end": "02:30",
-    "main_contract": "AG0"
+    "main_contract": "AG0",
+    "day_hours": [
+      "09:00-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-24:00",
+      "00:00-02:30"
+    ],
+    "last_updated": "2026-02-10T10:48:11.977194",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441285",
+    "isHidden": false
   },
   "SC": {
-    "name": "上海原油连续",
+    "name": "原油",
     "exchange": "SHFE",
     "multiplier": 1000.0,
     "min_tick": 0.1,
-    "quote_unit": "元（人民币）/桶 （交易报价为不含税价格）",
+    "quote_unit": "1000桶/手",
     "margin_rate": 0.1,
     "trading_hours": "每周一至周五9:00～10:15、10:30～11:30和13:30～15:00。连续交易时间为每周一至周五的21:00～次日2:30。法定节假日前第一个工作日（不包含周六和周日）的连续交易时间段不进行交易。",
     "night_end": "02:30",
-    "main_contract": "SC0"
-  },
-  "SH": {
-    "name": "烧碱连续",
-    "exchange": "CZCE",
-    "multiplier": 30.0,
-    "min_tick": 1.0,
-    "quote_unit": "元（人民币）/吨",
-    "margin_rate": 0.09,
-    "trading_hours": "每周一至周五（北京时间，法定节假日除外） 09:00-10:15、10:30-11:30及交易所规定的其他交易时间 夜盘交易时间为21:00－23:00",
-    "night_end": "23:00",
-    "main_contract": "SH0"
+    "main_contract": "SC0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-24:00",
+      "00:00-02:30"
+    ],
+    "last_updated": "2026-02-10T10:48:12.234693",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441295",
+    "isHidden": false
   },
   "V": {
-    "name": "PVC连续",
+    "name": "聚氯乙烯",
     "exchange": "DCE",
     "multiplier": 5.0,
     "min_tick": 5.0,
-    "quote_unit": "元(人民币/吨)",
+    "quote_unit": "5吨/手",
     "margin_rate": 0.07,
     "trading_hours": "上午 09:00-10:15 10:30-11:30 下午 13:30-15:00 夜间 21:00-23:00",
     "night_end": "23:00",
-    "main_contract": "V0"
+    "main_contract": "V0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-23:00"
+    ],
+    "last_updated": "2026-02-10T10:48:12.491570",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441302",
+    "isHidden": false
   },
   "P": {
-    "name": "棕榈油连续",
+    "name": "棕榈油",
     "exchange": "DCE",
     "multiplier": 10.0,
     "min_tick": 2.0,
-    "quote_unit": "元(人民币/吨)",
+    "quote_unit": "10吨/手",
     "margin_rate": 0.08,
     "trading_hours": "每周一至周五上午9:00－10:15 10:30-11：30 下午13:30－15:00 连续交易时间：21：00至23:00",
     "night_end": "23:00",
-    "main_contract": "P0"
+    "main_contract": "P0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-23:00"
+    ],
+    "last_updated": "2026-02-10T10:48:12.744040",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441309",
+    "isHidden": false
   },
   "B": {
-    "name": "豆二连续",
+    "name": "豆二",
     "exchange": "DCE",
     "multiplier": 10.0,
     "min_tick": 1.0,
-    "quote_unit": "元（人民币）/吨",
+    "quote_unit": "10吨/手",
     "margin_rate": 0.07,
     "trading_hours": "上午 09:00-10:15 10:30-11:30 下午 13:30-15:00 夜间 21:00-23:00",
     "night_end": "23:00",
-    "main_contract": "B0"
+    "main_contract": "B0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-23:00"
+    ],
+    "last_updated": "2026-02-10T10:48:13.003938",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441316",
+    "isHidden": false
   },
   "L": {
-    "name": "塑料连续",
+    "name": "塑料",
     "exchange": "DCE",
     "multiplier": 5.0,
     "min_tick": 5.0,
-    "quote_unit": "元(人民币/吨)",
+    "quote_unit": "5吨/手",
     "margin_rate": 0.07,
     "trading_hours": "上午 09:00-10:15 10:30-11:30 下午 13:30-15:00 夜间 21:00-23:00",
     "night_end": "23:00",
-    "main_contract": "L0"
+    "main_contract": "L0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-23:00"
+    ],
+    "last_updated": "2026-02-10T10:48:13.256306",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441323",
+    "isHidden": false
   },
   "PP": {
-    "name": "聚丙烯连续",
+    "name": "聚丙烯",
     "exchange": "DCE",
     "multiplier": 5.0,
     "min_tick": 1.0,
-    "quote_unit": "元（人民币）/吨",
+    "quote_unit": "5吨/手",
     "margin_rate": 0.07,
     "trading_hours": "上午 09:00-10:15 10:30-11:30 下午 13:30-15:00 夜间 21:00-23:00",
     "night_end": "23:00",
-    "main_contract": "PP0"
+    "main_contract": "PP0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-23:00"
+    ],
+    "last_updated": "2026-02-10T10:48:13.503579",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441330",
+    "isHidden": false
   },
   "FB": {
-    "name": "纤维板连续",
+    "name": "中密度纤维板",
     "exchange": "DCE",
     "multiplier": 500.0,
     "min_tick": 0.05,
-    "quote_unit": "元(人民币)/立方米",
+    "quote_unit": "500张/手",
     "margin_rate": 0.1,
     "trading_hours": "每周一至周五上午：9:00―10:15 10:30―11:30 下午：1:30―3:00",
     "night_end": "",
-    "main_contract": "FB0"
+    "main_contract": "FB0",
+    "day_hours": [],
+    "night_hours": [],
+    "last_updated": "2026-02-10T10:48:13.756907",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441331",
+    "isHidden": true
   },
   "Y": {
-    "name": "豆油连续",
+    "name": "豆油",
     "exchange": "DCE",
     "multiplier": 10.0,
     "min_tick": 2.0,
-    "quote_unit": "元(人民币/吨)",
+    "quote_unit": "10吨/手",
     "margin_rate": 0.07,
     "trading_hours": "每周一至周五上午9:00－10:15 10:30-11：30 下午13:30－15:00 连续交易时间：21：00至23:00",
     "night_end": "23:00",
-    "main_contract": "Y0"
+    "main_contract": "Y0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-23:00"
+    ],
+    "last_updated": "2026-02-10T10:48:14.004821",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441338",
+    "isHidden": false
   },
   "C": {
-    "name": "玉米连续",
+    "name": "玉米",
     "exchange": "DCE",
     "multiplier": 10.0,
     "min_tick": 1.0,
-    "quote_unit": "元(人民币/吨)",
+    "quote_unit": "10吨/手",
     "margin_rate": 0.07,
     "trading_hours": "上午 09:00-10:15 10:30-11:30 下午 13:30-15:00 夜间 21:00-23:00",
     "night_end": "23:00",
-    "main_contract": "C0"
+    "main_contract": "C0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-23:00"
+    ],
+    "last_updated": "2026-02-10T10:48:14.257255",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441345",
+    "isHidden": false
   },
   "A": {
-    "name": "豆一连续",
+    "name": "大豆",
     "exchange": "DCE",
     "multiplier": 10.0,
     "min_tick": 1.0,
-    "quote_unit": "元(人民币/吨)",
+    "quote_unit": "10吨/手",
     "margin_rate": 0.08,
     "trading_hours": "每周一至周五上午9:00－10:15 10:30-11：30 下午13:30－15:00 连续交易时间：21：00至23:00",
     "night_end": "23:00",
-    "main_contract": "A0"
+    "main_contract": "A0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-23:00"
+    ],
+    "last_updated": "2026-02-10T10:48:14.511686",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441351",
+    "isHidden": false
   },
   "J": {
-    "name": "焦炭连续",
+    "name": "焦炭",
     "exchange": "DCE",
     "multiplier": 100.0,
     "min_tick": 0.5,
-    "quote_unit": "元(人民币/吨)",
+    "quote_unit": "100吨/手",
     "margin_rate": 0.2,
     "trading_hours": "每周一至周五上午9:00－10:15 10:30-11：30 下午13:30－15:00 连续交易时间：21：00至23:00",
     "night_end": "23:00",
-    "main_contract": "J0"
+    "main_contract": "J0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-23:00"
+    ],
+    "last_updated": "2026-02-10T10:48:14.784578",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441358",
+    "isHidden": false
   },
   "JM": {
-    "name": "焦煤连续",
+    "name": "焦煤",
     "exchange": "DCE",
     "multiplier": 60.0,
     "min_tick": 0.5,
-    "quote_unit": "元(人民币/吨)",
+    "quote_unit": "60吨/手",
     "margin_rate": 0.2,
     "trading_hours": "每周一至周五上午9:00－10:15 10:30-11：30 下午13:30－15:00 连续交易时间：21：00至23:00",
     "night_end": "23:00",
-    "main_contract": "JM0"
+    "main_contract": "JM0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-23:00"
+    ],
+    "last_updated": "2026-02-10T10:48:15.035183",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441365",
+    "isHidden": false
   },
   "CS": {
-    "name": "淀粉连续",
+    "name": "玉米淀粉",
     "exchange": "DCE",
     "multiplier": 10.0,
     "min_tick": 1.0,
-    "quote_unit": "元(人民币)/吨",
+    "quote_unit": "10吨/手",
     "margin_rate": 0.06,
     "trading_hours": "上午 09:00-10:15 10:30-11:30 下午 13:30-15:00 夜间 21:00-23:00",
     "night_end": "23:00",
-    "main_contract": "CS0"
+    "main_contract": "CS0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-23:00"
+    ],
+    "last_updated": "2026-02-10T10:48:15.288303",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441371",
+    "isHidden": false
   },
   "EG": {
-    "name": "乙二醇连续",
+    "name": "乙二醇",
     "exchange": "DCE",
     "multiplier": 10.0,
     "min_tick": 1.0,
-    "quote_unit": "元（人民币）/吨",
+    "quote_unit": "10吨/手",
     "margin_rate": 0.08,
     "trading_hours": "上午 09:00-10:15 10:30-11:30 下午 13:30-15:00 夜间 21:00-23:00",
     "night_end": "23:00",
-    "main_contract": "EG0"
+    "main_contract": "EG0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-23:00"
+    ],
+    "last_updated": "2026-02-10T10:48:15.548506",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441378",
+    "isHidden": false
   },
   "RR": {
-    "name": "粳米连续",
+    "name": "粳米",
     "exchange": "DCE",
     "multiplier": 10.0,
     "min_tick": 1.0,
-    "quote_unit": "元（人民币）/吨",
+    "quote_unit": "10吨/手",
     "margin_rate": 0.05,
     "trading_hours": "每周一至周五上午9:00-11:30，下午13:30-15:00，以及交易所规定的其他时间",
     "night_end": "",
-    "main_contract": "RR0"
+    "main_contract": "RR0",
+    "day_hours": [
+      "09:00-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [],
+    "last_updated": "2026-02-10T10:48:15.808265",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441382",
+    "isHidden": true
   },
   "EB": {
-    "name": "苯乙烯连续",
+    "name": "苯乙烯",
     "exchange": "DCE",
     "multiplier": 5.0,
     "min_tick": 1.0,
-    "quote_unit": "元（人民币）/吨",
-    "margin_rate": 0.1,
+    "quote_unit": "5吨/手",
+    "margin_rate": 0.05,
     "trading_hours": "每周一至周五上午9:00～11:30，下午13:30～15:00，以及交易所规定的其他时间",
-    "night_end": "",
-    "main_contract": "EB0"
+    "night_end": "23:00",
+    "main_contract": "EB0",
+    "day_hours": [
+      "09:00-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-23:00"
+    ],
+    "last_updated": "2026-02-10T10:48:16.056578",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441390",
+    "isHidden": false
   },
   "PG": {
-    "name": "液化石油气连续",
+    "name": "液化石油气",
     "exchange": "DCE",
     "multiplier": 20.0,
     "min_tick": 0.2,
-    "quote_unit": "元（人民币）/吨",
+    "quote_unit": "20吨/手",
     "margin_rate": 0.08,
     "trading_hours": "每周一至周五上午9:00～11:30，下午13:30～15:00，以及交易所规定的其他时间",
-    "night_end": "",
-    "main_contract": "PG0"
+    "night_end": "23:00",
+    "main_contract": "PG0",
+    "day_hours": [
+      "09:00-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-23:00"
+    ],
+    "last_updated": "2026-02-10T10:48:16.307213",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441398",
+    "isHidden": false
   },
   "LH": {
-    "name": "生猪连续",
+    "name": "生猪期货",
     "exchange": "DCE",
     "multiplier": 16.0,
     "min_tick": 5.0,
-    "quote_unit": "元（人民币）/吨",
-    "margin_rate": 0.1,
+    "quote_unit": "16吨/手",
+    "margin_rate": 0.05,
     "trading_hours": "每周一至周五上午9:00～11:30，下午13:30～15:00，以及交易所规定的其他时间",
     "night_end": "",
-    "main_contract": "LH0"
+    "main_contract": "LH0",
+    "day_hours": [
+      "09:00-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [],
+    "last_updated": "2026-02-10T10:48:16.566487",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441402",
+    "isHidden": true
   },
   "LG": {
-    "name": "原木连续",
+    "name": "原木",
     "exchange": "DCE",
     "multiplier": 90.0,
     "min_tick": 0.5,
-    "quote_unit": "元（人民币）/立方米",
+    "quote_unit": "90立方米/手",
     "margin_rate": 0.08,
     "trading_hours": "上午9:00-11:30，下午13:30-15:00，以及交易所规定的其他交易时间",
     "night_end": "",
-    "main_contract": "LG0"
+    "main_contract": "LG0",
+    "day_hours": [
+      "09:00-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [],
+    "last_updated": "2026-02-10T10:48:16.828949",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441406",
+    "isHidden": true
   },
   "BZ": {
-    "name": "纯苯连续",
+    "name": "纯苯",
     "exchange": "DCE",
     "multiplier": 30.0,
     "min_tick": 1.0,
-    "quote_unit": "元（人民币）/吨",
-    "margin_rate": 0.1,
+    "quote_unit": "30吨/手",
+    "margin_rate": 0.05,
     "trading_hours": "上午9:00-11:30，下午13:30-15:00，以及交易所规定的其他交易时间",
     "night_end": "",
-    "main_contract": "BZ0"
+    "main_contract": "BZ0",
+    "day_hours": [
+      "09:00-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [],
+    "last_updated": "2026-02-10T10:48:17.083146",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441410",
+    "isHidden": true
   },
   "OI": {
-    "name": "菜油连续",
+    "name": "菜油",
     "exchange": "CZCE",
     "multiplier": 10.0,
     "min_tick": 2.0,
-    "quote_unit": "元(人民币/吨)",
+    "quote_unit": "10吨/手",
     "margin_rate": 0.05,
     "trading_hours": "每周一至周五上午9:00－10:15 10:30-11：30 下午13:30－15:00 连续交易时间：21：00至23:00",
     "night_end": "23:00",
-    "main_contract": "OI0"
+    "main_contract": "OI0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-23:00"
+    ],
+    "last_updated": "2026-02-10T10:48:17.344205",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441417",
+    "isHidden": false
   },
   "RS": {
-    "name": "菜籽连续",
+    "name": "菜籽",
     "exchange": "CZCE",
     "multiplier": 10.0,
     "min_tick": 1.0,
-    "quote_unit": "元(人民币/吨)",
+    "quote_unit": "10吨/手",
     "margin_rate": 0.2,
     "trading_hours": "每周一到周五上午9:00-10:15,10:30-11:30，下午13:30-15:00",
     "night_end": "",
-    "main_contract": "RS0"
+    "main_contract": "RS0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [],
+    "last_updated": "2026-02-10T10:48:17.603511",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441423",
+    "isHidden": true
   },
   "RM": {
-    "name": "菜粕连续",
+    "name": "菜粕",
     "exchange": "CZCE",
     "multiplier": 10.0,
     "min_tick": 1.0,
-    "quote_unit": "元(人民币/吨)",
+    "quote_unit": "10吨/手",
     "margin_rate": 0.06,
     "trading_hours": "每周一至周五上午9:00－10:15 10:30-11：30 下午13:30－15:00 连续交易时间：21：00至23:00",
     "night_end": "23:00",
-    "main_contract": "RM0"
+    "main_contract": "RM0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-23:00"
+    ],
+    "last_updated": "2026-02-10T10:48:17.866937",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441429",
+    "isHidden": false
   },
   "WH": {
-    "name": "强麦连续",
+    "name": "强麦",
     "exchange": "CZCE",
     "multiplier": 20.0,
     "min_tick": 1.0,
-    "quote_unit": "元(人民币/吨)",
+    "quote_unit": "20吨/手",
     "margin_rate": 0.2,
     "trading_hours": "每周一到周五上午9:00-10:15,10:30-11:30，下午13:30-15:00",
     "night_end": "",
-    "main_contract": "WH0"
+    "main_contract": "WH0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [],
+    "last_updated": "2026-02-10T10:48:18.116246",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441435",
+    "isHidden": true
   },
   "JR": {
-    "name": "粳稻连续",
+    "name": "粳稻谷（简称“粳稻”）",
     "exchange": "CZCE",
     "multiplier": 20.0,
     "min_tick": 1.0,
-    "quote_unit": "元（人民币）/吨",
+    "quote_unit": "20吨/手",
     "margin_rate": 0.1,
     "trading_hours": "上午 09:00-10:15 10:30-11:30 下午 13:30-15:00",
     "night_end": "",
-    "main_contract": "JR0"
+    "main_contract": "JR0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [],
+    "last_updated": "2026-02-10T10:48:18.367066",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441442",
+    "isHidden": true
   },
   "SR": {
-    "name": "白糖连续",
+    "name": "白糖",
     "exchange": "CZCE",
     "multiplier": 10.0,
     "min_tick": 2.0,
-    "quote_unit": "元(人民币/吨)",
+    "quote_unit": "10吨/手",
     "margin_rate": 0.05,
     "trading_hours": "每周一至周五上午9:00－10:15 10:30-11：30 下午13:30－15:00 连续交易时间：21：00至23:00",
     "night_end": "23:00",
-    "main_contract": "SR0"
+    "main_contract": "SR0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-23:00"
+    ],
+    "last_updated": "2026-02-10T10:48:18.620954",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441449",
+    "isHidden": false
   },
   "CF": {
-    "name": "棉花连续",
+    "name": "棉花",
     "exchange": "CZCE",
     "multiplier": 5.0,
     "min_tick": 5.0,
-    "quote_unit": "元(人民币/吨)",
+    "quote_unit": "5吨/手",
     "margin_rate": 0.05,
     "trading_hours": "每周一至周五上午9:00－10:15 10:30-11：30 下午13:30－15:00 连续交易时间：21：00至23:00",
     "night_end": "23:00",
-    "main_contract": "CF0"
+    "main_contract": "CF0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-23:00"
+    ],
+    "last_updated": "2026-02-10T10:48:18.876264",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441456",
+    "isHidden": false
   },
   "RI": {
-    "name": "早籼稻连续",
+    "name": "早稻",
     "exchange": "CZCE",
     "multiplier": 20.0,
     "min_tick": 1.0,
-    "quote_unit": "元(人民币/吨)",
+    "quote_unit": "20吨/手",
     "margin_rate": 0.2,
     "trading_hours": "每周一到周五上午9:00-10:15,10:30-11:30，下午13:30-15:00",
     "night_end": "",
-    "main_contract": "RI0"
+    "main_contract": "RI0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [],
+    "last_updated": "2026-02-10T10:48:19.128390",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441461",
+    "isHidden": true
   },
   "MA": {
-    "name": "甲醇连续",
+    "name": "甲醇",
     "exchange": "CZCE",
     "multiplier": 10.0,
     "min_tick": 1.0,
-    "quote_unit": "元(人民币)/吨",
+    "quote_unit": "10吨/手",
     "margin_rate": 0.07,
     "trading_hours": "每周一至周五上午9:00－10:15 10:30-11：30 下午13:30－15:00 连续交易时间：21：00至23:00",
     "night_end": "23:00",
-    "main_contract": "MA0"
+    "main_contract": "MA0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-23:00"
+    ],
+    "last_updated": "2026-02-10T10:48:19.390599",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441467",
+    "isHidden": false
   },
   "FG": {
-    "name": "玻璃连续",
+    "name": "玻璃",
     "exchange": "CZCE",
     "multiplier": 20.0,
     "min_tick": 1.0,
-    "quote_unit": "元(人民币/吨)",
+    "quote_unit": "20吨/手",
     "margin_rate": 0.05,
     "trading_hours": "每周一至周五上午9:00－10:15 10:30-11：30 下午13:30－15:00 连续交易时间：21：00至23:00",
     "night_end": "23:00",
-    "main_contract": "FG0"
+    "main_contract": "FG0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-23:00"
+    ],
+    "last_updated": "2026-02-10T10:48:19.645678",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441474",
+    "isHidden": false
   },
   "LR": {
-    "name": "晚籼稻连续",
+    "name": "晚籼稻",
     "exchange": "CZCE",
     "multiplier": 20.0,
     "min_tick": 1.0,
-    "quote_unit": "元（人民币）/吨",
+    "quote_unit": "20吨/手",
     "margin_rate": 0.2,
     "trading_hours": "每周一至周五（北京时间法定节假日除外） 上午 09:00-10:15 10:30-11:30 下午 13:30-15:00",
     "night_end": "",
-    "main_contract": "LR0"
+    "main_contract": "LR0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [],
+    "last_updated": "2026-02-10T10:48:19.912491",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441479",
+    "isHidden": true
   },
   "SF": {
-    "name": "硅铁连续",
+    "name": "硅铁",
     "exchange": "CZCE",
     "multiplier": 5.0,
     "min_tick": 2.0,
-    "quote_unit": "元(人民币)/吨",
+    "quote_unit": "5吨/手",
     "margin_rate": 0.1,
     "trading_hours": "每周一至周五上午9:00～11:30，下午13:30～15:00，最后交易日上午9:00-11:30 及交易所规定其他时间",
-    "night_end": "",
-    "main_contract": "SF0"
+    "night_end": "23:00",
+    "main_contract": "SF0",
+    "day_hours": [
+      "09:00-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-23:00"
+    ],
+    "last_updated": "2026-02-10T10:48:20.166142",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441487",
+    "isHidden": false
   },
   "SM": {
-    "name": "锰硅连续",
+    "name": "锰硅",
     "exchange": "CZCE",
     "multiplier": 5.0,
     "min_tick": 2.0,
-    "quote_unit": "元(人民币)/吨",
+    "quote_unit": "5吨/手",
     "margin_rate": 0.1,
     "trading_hours": "每周一至周五上午9:00～11:30，下午13:30～15:00，最后交易日上午9:00-11:30 及交易所规定其他时间",
-    "night_end": "",
-    "main_contract": "SM0"
+    "night_end": "23:00",
+    "main_contract": "SM0",
+    "day_hours": [
+      "09:00-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-23:00"
+    ],
+    "last_updated": "2026-02-10T10:48:20.433922",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441494",
+    "isHidden": false
   },
   "CY": {
-    "name": "棉纱连续",
+    "name": "棉纱",
     "exchange": "CZCE",
     "multiplier": 5.0,
     "min_tick": 5.0,
-    "quote_unit": "元（人民币）/吨",
+    "quote_unit": "5吨/手",
     "margin_rate": 0.05,
     "trading_hours": "每周一至周五上午9:00～11:30，下午13:30～15:00，21:00―23:00",
     "night_end": "23:00",
-    "main_contract": "CY0"
+    "main_contract": "CY0",
+    "day_hours": [
+      "09:00-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-23:00"
+    ],
+    "last_updated": "2026-02-10T10:48:20.690138",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441501",
+    "isHidden": false
   },
   "AP": {
-    "name": "苹果连续",
+    "name": "鲜苹果",
     "exchange": "CZCE",
     "multiplier": 10.0,
     "min_tick": 1.0,
-    "quote_unit": "元（人民币）/吨",
+    "quote_unit": "10吨/手",
     "margin_rate": 0.08,
     "trading_hours": "上午 09:00-10:15 10:30-11:30 下午 13:30-15:00",
     "night_end": "",
-    "main_contract": "AP0"
+    "main_contract": "AP0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [],
+    "last_updated": "2026-02-10T10:48:20.939285",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441507",
+    "isHidden": true
   },
   "UR": {
-    "name": "尿素连续",
+    "name": "尿素",
     "exchange": "CZCE",
     "multiplier": 20.0,
     "min_tick": 1.0,
-    "quote_unit": "元（人民币）/吨",
-    "margin_rate": 0.1,
+    "quote_unit": "20吨/手",
+    "margin_rate": 0.08,
     "trading_hours": "每周一至周五（北京时间法定节假日除外）上午 9：00-11：30 下午 13：30-15：00以及交易所规定的其他时间最后交易日上午9：00-11:30",
     "night_end": "",
-    "main_contract": "UR0"
+    "main_contract": "UR0",
+    "day_hours": [
+      "09:00-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [],
+    "last_updated": "2026-02-10T10:48:21.186301",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441511",
+    "isHidden": true
   },
   "SA": {
-    "name": "纯碱连续",
+    "name": "纯碱",
     "exchange": "CZCE",
     "multiplier": 20.0,
     "min_tick": 1.0,
-    "quote_unit": "元（人民币）/吨",
-    "margin_rate": 0.1,
+    "quote_unit": "20吨/手",
+    "margin_rate": 0.09,
     "trading_hours": "每周一至周五（北京时间法定节假日除外） 上午 9:00-11:30，下午1:30-3:00及交易所规定的其他交易时间",
-    "night_end": "",
-    "main_contract": "SA0"
+    "night_end": "23:00",
+    "main_contract": "SA0",
+    "day_hours": [
+      "09:00-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-23:00"
+    ],
+    "last_updated": "2026-02-10T10:48:21.437292",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441519",
+    "isHidden": false
   },
   "PF": {
-    "name": "短纤连续",
+    "name": "短纤",
     "exchange": "CZCE",
     "multiplier": 5.0,
     "min_tick": 2.0,
-    "quote_unit": "元（人民币）/吨",
+    "quote_unit": "5吨/手",
     "margin_rate": 0.08,
     "trading_hours": "每周一至周五（北京时间，法定节假日除外）上午9：00-11：30 下午1:30-3:00，以及交易所规定的其他交易时间",
-    "night_end": "",
-    "main_contract": "PF0"
+    "night_end": "23:00",
+    "main_contract": "PF0",
+    "day_hours": [
+      "09:00-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-23:00"
+    ],
+    "last_updated": "2026-02-10T10:48:21.694739",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441526",
+    "isHidden": false
   },
   "PK": {
-    "name": "花生连续",
+    "name": "花生",
     "exchange": "CZCE",
     "multiplier": 5.0,
     "min_tick": 2.0,
-    "quote_unit": "元（人民币）/吨",
+    "quote_unit": "5吨/手",
     "margin_rate": 0.08,
     "trading_hours": "每周一至周五（北京时间，法定节假日除外） 上午9：00-11：30 下午1:30-3:00及交易所规定的其他交易时间",
     "night_end": "",
-    "main_contract": "PK0"
+    "main_contract": "PK0",
+    "day_hours": [
+      "09:00-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [],
+    "last_updated": "2026-02-10T10:48:21.993599",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441530",
+    "isHidden": true
   },
   "PX": {
-    "name": "对二甲苯连续",
+    "name": "对二甲苯",
     "exchange": "CZCE",
     "multiplier": 5.0,
     "min_tick": 2.0,
-    "quote_unit": "元（人民币）/吨",
+    "quote_unit": "5吨/手",
     "margin_rate": 0.12,
     "trading_hours": "每周一至周五（北京时间，法定节假日除外） 09:00-10:15、10:30-11:30及交易所规定的其他交易时间 夜盘交易时间为21:00－23:00",
     "night_end": "23:00",
-    "main_contract": "PX0"
+    "main_contract": "PX0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30"
+    ],
+    "night_hours": [
+      "21:00-23:00"
+    ],
+    "last_updated": "2026-02-10T10:48:22.244785",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441535",
+    "isHidden": false
   },
   "PR": {
-    "name": "瓶片连续",
+    "name": "瓶片",
     "exchange": "CZCE",
     "multiplier": 15.0,
     "min_tick": 2.0,
-    "quote_unit": "元（人民币）/吨",
+    "quote_unit": "15吨/手",
     "margin_rate": 0.08,
     "trading_hours": "每周一至周五（北京时间，法定节假日除外） 09:00-10:15、10:30-11:30及交易所规定的其他交易时间 夜盘交易时间为21:00－23:00",
     "night_end": "23:00",
-    "main_contract": "PR0"
+    "main_contract": "PR0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30"
+    ],
+    "night_hours": [
+      "21:00-23:00"
+    ],
+    "last_updated": "2026-02-10T10:48:22.495708",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441540",
+    "isHidden": false
   },
   "PL": {
-    "name": "丙烯连续",
+    "name": "丙烯",
     "exchange": "CZCE",
     "multiplier": 20.0,
     "min_tick": 1.0,
-    "quote_unit": "元（人民币）/吨",
-    "margin_rate": 0.1,
+    "quote_unit": "20吨/手",
+    "margin_rate": 0.08,
     "trading_hours": "交易时间分为夜盘交易时间和日盘交易时间。夜盘交易时间为下午21:00－23:00。日盘交易时间为上午9:00－11:30，下午13:30－15:00；其中，上午10:15－10:30为休息时间",
     "night_end": "23:00",
-    "main_contract": "PL0"
+    "main_contract": "PL0",
+    "day_hours": [
+      "09:00-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-23:00"
+    ],
+    "last_updated": "2026-02-10T10:48:22.754170",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441546",
+    "isHidden": false
   },
   "FU": {
-    "name": "燃料油连续",
+    "name": "燃油",
     "exchange": "SHFE",
     "multiplier": 10.0,
     "min_tick": 1.0,
-    "quote_unit": "元(人民币/吨)",
+    "quote_unit": "10吨/手",
     "margin_rate": 0.1,
     "trading_hours": "每周一到周五上午9:00-10:15,10:30-11:30，下午13:30-15:00",
-    "night_end": "",
-    "main_contract": "FU0"
+    "night_end": "23:00",
+    "main_contract": "FU0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-23:00"
+    ],
+    "last_updated": "2026-02-10T10:48:23.020973",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441554",
+    "isHidden": false
   },
   "AL": {
-    "name": "铝连续",
+    "name": "沪铝",
     "exchange": "SHFE",
     "multiplier": 5.0,
     "min_tick": 5.0,
-    "quote_unit": "元(人民币/吨)",
+    "quote_unit": "5吨/手",
     "margin_rate": 0.09,
     "trading_hours": "每周一到周五上午9:00-10:15,10:30-11:30,下午13:30-15:00连续交易时间：21:00至次日1:00",
     "night_end": "01:00",
-    "main_contract": "AL0"
+    "main_contract": "AL0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-24:00",
+      "00:00-01:00"
+    ],
+    "last_updated": "2026-02-10T10:48:23.270794",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441565",
+    "isHidden": false
   },
   "RU": {
-    "name": "天然橡胶连续",
+    "name": "橡胶",
     "exchange": "SHFE",
     "multiplier": 10.0,
     "min_tick": 5.0,
-    "quote_unit": "元(人民币/吨)",
+    "quote_unit": "10吨/手",
     "margin_rate": 0.08,
     "trading_hours": "每周一至周五上午9:00－10:15 10:30-11：30 下午13:30－15:00 连续交易时间：21：00至23:00",
     "night_end": "23:00",
-    "main_contract": "RU0"
+    "main_contract": "RU0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-23:00"
+    ],
+    "last_updated": "2026-02-10T10:48:23.521728",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441571",
+    "isHidden": false
   },
   "ZN": {
-    "name": "沪锌连续",
+    "name": "沪锌",
     "exchange": "SHFE",
     "multiplier": 5.0,
     "min_tick": 5.0,
-    "quote_unit": "元(人民币/吨)",
+    "quote_unit": "5吨/手",
     "margin_rate": 0.08,
     "trading_hours": "每周一至周五上午9:00－10:15 10:30-11：30 下午13:30－15:00 连续交易时间：21：00至次日1:00",
     "night_end": "01:00",
-    "main_contract": "ZN0"
+    "main_contract": "ZN0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-24:00",
+      "00:00-01:00"
+    ],
+    "last_updated": "2026-02-10T10:48:23.785429",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441581",
+    "isHidden": false
   },
   "PB": {
-    "name": "铅连续",
+    "name": "沪铅",
     "exchange": "SHFE",
     "multiplier": 5.0,
     "min_tick": 5.0,
-    "quote_unit": "元(人民币/吨)",
+    "quote_unit": "5吨/手",
     "margin_rate": 0.08,
     "trading_hours": "每周一至周五上午9:00－10:15 10:30-11：30 下午13:30－15:00 连续交易时间：21：00至次日1:00",
     "night_end": "01:00",
-    "main_contract": "PB0"
+    "main_contract": "PB0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-24:00",
+      "00:00-01:00"
+    ],
+    "last_updated": "2026-02-10T10:48:24.031544",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441591",
+    "isHidden": false
   },
   "BU": {
-    "name": "沥青连续",
+    "name": "沥青",
     "exchange": "SHFE",
     "multiplier": 10.0,
     "min_tick": 2.0,
-    "quote_unit": "元(人民币)/吨",
+    "quote_unit": "10吨/手",
     "margin_rate": 0.1,
     "trading_hours": "每周一至周五上午9:00－10:15 10:30-11：30 下午13:30－15:00 连续交易时间：21：00至23:00",
     "night_end": "23:00",
-    "main_contract": "BU0"
+    "main_contract": "BU0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-23:00"
+    ],
+    "last_updated": "2026-02-10T10:48:24.296475",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441599",
+    "isHidden": false
   },
   "HC": {
-    "name": "热轧卷板连续",
+    "name": "热卷",
     "exchange": "SHFE",
     "multiplier": 10.0,
     "min_tick": 1.0,
-    "quote_unit": "元(人民币)/吨",
+    "quote_unit": "10吨/手",
     "margin_rate": 0.07,
     "trading_hours": "每周一至周五上午9:00－10:15 10:30-11：30 下午13:30－15:00 连续交易时间：21：00至23:00",
     "night_end": "23:00",
-    "main_contract": "HC0"
+    "main_contract": "HC0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-23:00"
+    ],
+    "last_updated": "2026-02-10T10:48:24.550277",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441606",
+    "isHidden": false
   },
   "SN": {
-    "name": "锡连续",
+    "name": "沪锡",
     "exchange": "SHFE",
     "multiplier": 1.0,
     "min_tick": 10.0,
-    "quote_unit": "元（人民币）/吨",
+    "quote_unit": "1吨/手",
     "margin_rate": 0.12,
     "trading_hours": "每周一至周五上午9:00－10:15 10:30-11：30 下午13:30－15:00 连续交易时间：每周一至周五的21：至次日1:00",
     "night_end": "01:00",
-    "main_contract": "SN0"
+    "main_contract": "SN0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-24:00",
+      "00:00-01:00"
+    ],
+    "last_updated": "2026-02-10T10:48:24.799817",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441616",
+    "isHidden": false
   },
   "NI": {
-    "name": "镍连续",
+    "name": "沪镍",
     "exchange": "SHFE",
     "multiplier": 1.0,
     "min_tick": 10.0,
-    "quote_unit": "元（人民币）/吨",
+    "quote_unit": "1吨/手",
     "margin_rate": 0.12,
     "trading_hours": "每周一至周五上午9:00－10:15 10:30-11：30 下午13:30－15:00 连续交易时间：21：00至次日1:00",
     "night_end": "01:00",
-    "main_contract": "NI0"
+    "main_contract": "NI0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-24:00",
+      "00:00-01:00"
+    ],
+    "last_updated": "2026-02-10T10:48:25.050667",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441627",
+    "isHidden": false
   },
   "SP": {
-    "name": "纸浆连续",
+    "name": "纸浆",
     "exchange": "SHFE",
     "multiplier": 10.0,
     "min_tick": 2.0,
-    "quote_unit": "元(人民币)/吨",
+    "quote_unit": "10吨/手",
     "margin_rate": 0.08,
     "trading_hours": "上午 09:00-10:15 10:30-11:30 下午 13:30-15:00 夜间 21:00-23:00",
     "night_end": "23:00",
-    "main_contract": "SP0"
+    "main_contract": "SP0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-23:00"
+    ],
+    "last_updated": "2026-02-10T10:48:25.301603",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441635",
+    "isHidden": false
   },
   "NR": {
-    "name": "20号胶连续",
+    "name": "20号胶",
     "exchange": "SHFE",
     "multiplier": 10.0,
     "min_tick": 5.0,
-    "quote_unit": "元（人民币）/吨（交易报价为不含税价格）",
+    "quote_unit": "10吨/手",
     "margin_rate": 0.1,
     "trading_hours": "每周一至周五，9:00-10:15、10:30-11:30和13:30-15:00，连续交易时间，每周一至周五21:00-23:00。法定节假日前第一个工作日（不包含周六和周日）的连续交易时间段不进行交易。",
     "night_end": "23:00",
-    "main_contract": "NR0"
+    "main_contract": "NR0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-23:00"
+    ],
+    "last_updated": "2026-02-10T10:48:25.569936",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441643",
+    "isHidden": false
   },
   "LU": {
-    "name": "低硫燃料油连续",
+    "name": "低硫燃料油",
     "exchange": "SHFE",
     "multiplier": 10.0,
     "min_tick": 1.0,
-    "quote_unit": "元（人民币）/吨",
+    "quote_unit": "10吨/手",
     "margin_rate": 0.12,
     "trading_hours": "每周一至周五上午9:00-11:30，下午13:30-15:00，以及交易所公布的其他时间",
-    "night_end": "",
-    "main_contract": "LU0"
+    "night_end": "23:00",
+    "main_contract": "LU0",
+    "day_hours": [
+      "09:00-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-23:00"
+    ],
+    "last_updated": "2026-02-10T10:48:25.829841",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441651",
+    "isHidden": false
   },
   "BC": {
-    "name": "国际铜连续",
+    "name": "国际铜",
     "exchange": "SHFE",
     "multiplier": 5.0,
     "min_tick": 10.0,
-    "quote_unit": "元（人民币）/吨",
+    "quote_unit": "5吨/手",
     "margin_rate": 0.09,
     "trading_hours": "上午9:00－11:30，下午1:30－3:00以及上海国际能源交易中心规定的其他交易时间",
     "night_end": "01:00",
-    "main_contract": "BC0"
+    "main_contract": "BC0",
+    "day_hours": [
+      "09:00-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-24:00",
+      "00:00-01:00"
+    ],
+    "last_updated": "2026-02-10T10:48:26.084173",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441660",
+    "isHidden": false
   },
   "AO": {
-    "name": "氧化铝连续",
+    "name": "氧化铝",
     "exchange": "SHFE",
     "multiplier": 20.0,
     "min_tick": 1.0,
-    "quote_unit": "元（人民币）/吨",
+    "quote_unit": "20吨/手",
     "margin_rate": 0.09,
     "trading_hours": "每周一至周五，09:00-10:15、10:30-11:30和13:30-15:00，夜盘交易时间为每周一至周五21:00-次日01:00",
     "night_end": "01:00",
-    "main_contract": "AO0"
+    "main_contract": "AO0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "00:00-01:00",
+      "21:00-24:00"
+    ],
+    "last_updated": "2026-02-10T10:48:26.330481",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441668",
+    "isHidden": false
   },
   "BR": {
-    "name": "丁二烯橡胶连续",
+    "name": "合成橡胶",
     "exchange": "SHFE",
     "multiplier": 5.0,
     "min_tick": 5.0,
-    "quote_unit": "元（人民币）/吨",
+    "quote_unit": "5吨/手",
     "margin_rate": 0.12,
     "trading_hours": "最后交易日后连续二个工作日",
-    "night_end": "",
-    "main_contract": "BR0"
+    "night_end": "23:00",
+    "main_contract": "BR0",
+    "day_hours": [],
+    "night_hours": [
+      "21:00-23:00"
+    ],
+    "last_updated": "2026-02-10T10:48:26.585395",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441673",
+    "isHidden": false
   },
   "EC": {
-    "name": "集运指数欧线期货连续",
+    "name": "欧线集运",
     "exchange": "SHFE",
-    "multiplier": 1,
+    "multiplier": 0.0,
     "min_tick": 0.1,
     "quote_unit": "指数点",
-    "margin_rate": 0.1,
+    "margin_rate": 0.0,
     "trading_hours": "每周一至周五，09:00-10:15、10:30-11:30和13:30-15:00",
     "night_end": "",
-    "main_contract": "EC0"
+    "main_contract": "EC0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [],
+    "last_updated": "2026-02-10T10:48:26.867644",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441679",
+    "isHidden": true
   },
   "AD": {
-    "name": "铸造铝合金连续",
+    "name": "铝合金",
     "exchange": "SHFE",
     "multiplier": 10.0,
     "min_tick": 5.0,
-    "quote_unit": "元（人民币）/吨",
+    "quote_unit": "10吨/手",
     "margin_rate": 0.09,
     "trading_hours": "每周一至周五，09:00-10:15、10:30-11:30和13:30-15:00。连续交易时间，每周一至周五21:00-次日01:00。法定节假日前第一个工作日（不包含周六和周日）的连续交易时间段不进行交易。",
     "night_end": "01:00",
-    "main_contract": "AD0"
+    "main_contract": "AD0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "00:00-01:00",
+      "21:00-24:00"
+    ],
+    "last_updated": "2026-02-10T10:48:27.117140",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441687",
+    "isHidden": false
   },
   "OP": {
-    "name": "胶版印刷纸连续",
+    "name": "双胶纸",
     "exchange": "SHFE",
     "multiplier": 40.0,
     "min_tick": 2.0,
-    "quote_unit": "元（人民币）/吨",
+    "quote_unit": "40吨/手",
     "margin_rate": 0.05,
     "trading_hours": "每周一至周五，9:00-10:15、10:30-11:30和13:30-15:00。连续交易时间为每周一至周五21:00-23:00。法定节假日前第一个工作日（不包含周六和周日）的连续交易时间段不进行交易。",
     "night_end": "23:00",
-    "main_contract": "OP0"
+    "main_contract": "OP0",
+    "day_hours": [
+      "09:00-10:15",
+      "10:30-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [
+      "21:00-23:00"
+    ],
+    "last_updated": "2026-02-10T10:48:27.413836",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441694",
+    "isHidden": true
   },
   "IF": {
-    "name": "沪深300指数期货连续",
+    "name": "沪深300指数期货",
     "exchange": "CFFEX",
     "multiplier": 300.0,
     "min_tick": 0.2,
-    "quote_unit": "指数点",
+    "quote_unit": "每点300元",
     "margin_rate": 0.1,
     "trading_hours": "上午9:30―11:30；下午13:00―15:00",
     "night_end": "",
-    "main_contract": "IF0"
+    "main_contract": "IF0",
+    "day_hours": [],
+    "night_hours": [],
+    "last_updated": "2026-02-10T10:48:27.663881",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441696",
+    "isHidden": true
   },
   "TF": {
-    "name": "5年期国债期货连续",
+    "name": "5年期国债期货",
     "exchange": "CFFEX",
     "multiplier": 100.0,
     "min_tick": 0.005,
-    "quote_unit": "百元净价报价",
+    "quote_unit": "面值为100万元人民币、票面利率为3",
     "margin_rate": 0.012,
     "trading_hours": "上午9:15―11:30；下午13:00―15:15",
     "night_end": "",
-    "main_contract": "TF0"
+    "main_contract": "TF0",
+    "day_hours": [],
+    "night_hours": [],
+    "last_updated": "2026-02-10T10:48:27.913942",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441697",
+    "isHidden": true
   },
   "IH": {
-    "name": "上证50指数期货连续",
+    "name": "上证50指数期货",
     "exchange": "CFFEX",
     "multiplier": 300.0,
     "min_tick": 0.2,
-    "quote_unit": "指数点",
+    "quote_unit": "每点300元",
     "margin_rate": 0.1,
     "trading_hours": "上午9:30―11:30；下午13:00―15:00",
     "night_end": "",
-    "main_contract": "IH0"
+    "main_contract": "IH0",
+    "day_hours": [],
+    "night_hours": [],
+    "last_updated": "2026-02-10T10:48:28.185970",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441698",
+    "isHidden": true
   },
   "IC": {
-    "name": "中证500指数期货连续",
+    "name": "中证500指数期货",
     "exchange": "CFFEX",
     "multiplier": 200.0,
     "min_tick": 0.2,
-    "quote_unit": "指数点",
+    "quote_unit": "每点200元",
     "margin_rate": 0.15,
     "trading_hours": "上午9:30―11:30；下午13:00―15:00",
     "night_end": "",
-    "main_contract": "IC0"
+    "main_contract": "IC0",
+    "day_hours": [],
+    "night_hours": [],
+    "last_updated": "2026-02-10T10:48:28.437005",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441699",
+    "isHidden": true
   },
   "TS": {
-    "name": "2年期国债期货连续",
+    "name": "2年期国债期货",
     "exchange": "CFFEX",
     "multiplier": 200.0,
     "min_tick": 0.005,
-    "quote_unit": "百元净价报价",
-    "margin_rate": 0.005,
+    "quote_unit": "面值为200万元人民币、票面利率为3",
+    "margin_rate": 0.5,
     "trading_hours": "9:15～11:30，13:00～15:15",
     "night_end": "",
-    "main_contract": "TS0"
+    "main_contract": "TS0",
+    "day_hours": [
+      "09:15-11:30",
+      "13:00-15:15"
+    ],
+    "night_hours": [],
+    "last_updated": "2026-02-10T10:48:28.691619",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441704",
+    "isHidden": true
   },
   "SI": {
-    "name": "工业硅连续",
+    "name": "工业硅",
     "exchange": "GFEX",
     "multiplier": 5.0,
     "min_tick": 5.0,
-    "quote_unit": "元（人民币）/吨",
+    "quote_unit": "5吨/手",
     "margin_rate": 0.05,
     "trading_hours": "每周一至周五（北京时间 法定节假日除外）9:00～11:30，13:30～15:00，及交易所规定的其他时间",
     "night_end": "",
-    "main_contract": "SI0"
+    "main_contract": "SI0",
+    "day_hours": [
+      "09:00-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [],
+    "last_updated": "2026-02-10T10:48:28.941870",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441709",
+    "isHidden": true
   },
   "LC": {
-    "name": "碳酸锂连续",
+    "name": "碳酸锂",
     "exchange": "GFEX",
     "multiplier": 1.0,
     "min_tick": 50.0,
-    "quote_unit": "元（人民币）/吨",
+    "quote_unit": "1吨/手",
     "margin_rate": 0.14,
     "trading_hours": "每周一至周五（北京时间法定节假日除外）9:00~11:30，13:30~15:00，及交易所规定的其他时间",
     "night_end": "",
-    "main_contract": "LC0"
+    "main_contract": "LC0",
+    "day_hours": [
+      "09:00-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [],
+    "last_updated": "2026-02-10T10:48:29.189204",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441713",
+    "isHidden": true
   },
   "PS": {
-    "name": "多晶硅连续",
+    "name": "多晶硅",
     "exchange": "GFEX",
     "multiplier": 3.0,
     "min_tick": 5.0,
-    "quote_unit": "元（人民币）/吨",
+    "quote_unit": "3吨/手",
     "margin_rate": 0.09,
     "trading_hours": "上午9:00－11:30，下午13:30－15:00，以及交易所规定的其他时间",
     "night_end": "",
-    "main_contract": "PS0"
+    "main_contract": "PS0",
+    "day_hours": [
+      "09:00-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [],
+    "last_updated": "2026-02-10T10:48:29.448863",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441717",
+    "isHidden": true
   },
   "PT": {
-    "name": "铂连续",
+    "name": "铂",
     "exchange": "GFEX",
     "multiplier": 1000.0,
     "min_tick": 0.05,
-    "quote_unit": "元（人民币）/克",
+    "quote_unit": "1000克/手",
     "margin_rate": 0.05,
     "trading_hours": "上午9:00－11:30，下午13:30－15:00，以及交易所规定的其他时间",
     "night_end": "",
-    "main_contract": "PT0"
+    "main_contract": "PT0",
+    "day_hours": [
+      "09:00-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [],
+    "last_updated": "2026-02-10T10:48:29.710174",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441721",
+    "isHidden": true
   },
   "PD": {
-    "name": "钯连续",
+    "name": "钯",
     "exchange": "GFEX",
     "multiplier": 1000.0,
     "min_tick": 0.05,
-    "quote_unit": "元（人民币）/克",
+    "quote_unit": "1000克/手",
     "margin_rate": 0.05,
     "trading_hours": "上午9:00－11:30，下午13:30－15:00，以及交易所规定的其他时间",
     "night_end": "",
-    "main_contract": "PD0"
+    "main_contract": "PD0",
+    "day_hours": [
+      "09:00-11:30",
+      "13:30-15:00"
+    ],
+    "night_hours": [],
+    "last_updated": "2026-02-10T10:48:29.960356",
+    "source_url": "https://www.akshare.xyz/",
+    "last_fixed": "2026-02-10T10:52:36.441724",
+    "isHidden": true
   }
 }

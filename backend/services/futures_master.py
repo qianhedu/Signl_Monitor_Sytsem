@@ -20,7 +20,12 @@ def load_contracts():
     if _contracts_cache is None:
         if os.path.exists(DATA_PATH):
             with open(DATA_PATH, 'r', encoding='utf-8') as f:
-                _contracts_cache = json.load(f)
+                full_data = json.load(f)
+                # Filter out hidden contracts (isHidden == True)
+                _contracts_cache = {
+                    k: v for k, v in full_data.items() 
+                    if v.get('isHidden') is not True
+                }
         else:
             _contracts_cache = {}
     return _contracts_cache

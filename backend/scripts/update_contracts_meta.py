@@ -1,166 +1,240 @@
 import akshare as ak
-import pandas as pd
 import json
-import re
 import os
-import time
+import re
+import datetime
+import traceback
+import math
 
-# Path to the JSON file
-JSON_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'futures_contracts.json')
+# Path config
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA_FILE = os.path.join(BASE_DIR, 'data', 'futures_contracts.json')
+REPORT_FILE = os.path.join(BASE_DIR, 'data', 'update_report.md')
 
-def parse_multiplier(text):
-    # Extract number from "10吨/手" -> 10
-    if not isinstance(text, str): return 1
+def load_json(path):
+    if os.path.exists(path):
+        with open(path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    return {}
+
+def save_json(path, data):
+    with open(path, 'w', encoding='utf-8') as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+
+def normalize_time_text(text):
+    text = text.replace('～', '-').replace('－', '-').replace('至', '-').replace('~', '-').replace('—', '-')
+    text = text.replace('：', ':')
+    text = text.replace('次日', '').replace('Next Day', '') # Remove "Next Day" markers
+    
+    # Handle "Afternoon" 12h conversion
+    def pm_repl(match):
+        h = int(match.group(1))
+        m = match.group(2)
+        if h < 12:
+            h += 12
+        return f"{h}:{m}"
+        
+    text = re.sub(r'下午\s*(\d{1,2}):(\d{2})', pm_repl, text)
+    return text
+
+def parse_time_ranges(text):
+    text = normalize_time_text(text)
+    
+    pattern = r'(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})'
+    matches = re.findall(pattern, text)
+    
+    unique_ranges = set()
+    for start, end in matches:
+        sh, sm = map(int, start.split(':'))
+        eh, em = map(int, end.split(':'))
+        
+        # Heuristic to fix End Time if it looks like 12h format mismatch
+        if 8 <= sh <= 17:
+            if eh < sh:
+                 if eh < 12:
+                     eh += 12
+        
+        # Split cross-day ranges (e.g. 21:00-02:30 -> 21:00-24:00, 00:00-02:30)
+        # Check if it's a night range that crosses midnight
+        is_cross_day = False
+        if (sh >= 20 or sh < 6) and (eh < sh or (eh == sh and em < sm)): # Simple check for crossing midnight
+             # Assuming standard night trading starts around 21:00 and ends next day early morning
+             # But we need to be careful. 
+             # If eh < sh, it definitely crosses midnight (e.g. 21:00 - 02:30)
+             # unless it's an error. But for night hours this is expected.
+             is_cross_day = True
+        
+        if is_cross_day:
+            print(f"DEBUG: Splitting cross-day range {start}-{end}")
+            unique_ranges.add(f"{sh:02d}:{sm:02d}-24:00")
+            unique_ranges.add(f"00:00-{eh:02d}:{em:02d}")
+        else:
+            s_str = f"{sh:02d}:{sm:02d}"
+            e_str = f"{eh:02d}:{em:02d}"
+            unique_ranges.add(f"{s_str}-{e_str}")
+        
+    if "10:15-10:30" in unique_ranges:
+        unique_ranges.remove("10:15-10:30")
+        
+    day_hours = []
+    night_hours = []
+    
+    sorted_ranges = sorted(list(unique_ranges))
+    
+    for r in sorted_ranges:
+        start_str = r.split('-')[0]
+        h = int(start_str.split(':')[0])
+        
+        if 8 <= h < 18: 
+            day_hours.append(r)
+        elif 20 <= h <= 24 or 0 <= h < 6:
+            night_hours.append(r)
+            
+    return day_hours, night_hours
+
+def validate_hours(day_hours, night_hours):
+    errors = []
+    all_ranges = []
+    
+    def parse_minutes(t_str):
+        h, m = map(int, t_str.split(':'))
+        return h * 60 + m
+
+    for h_list, label in [(day_hours, 'Day'), (night_hours, 'Night')]:
+        for time_range in h_list:
+            if not re.match(r'^\d{2}:\d{2}-\d{2}:\d{2}$', time_range):
+                errors.append(f"{label} range format error: {time_range}")
+                continue
+            
+            start_str, end_str = time_range.split('-')
+            start_min = parse_minutes(start_str)
+            end_min = parse_minutes(end_str)
+            
+            if end_min < start_min:
+                end_min += 24 * 60
+            
+            all_ranges.append((start_min, end_min, time_range))
+
+    all_ranges.sort()
+    for i in range(len(all_ranges) - 1):
+        r1 = all_ranges[i]
+        r2 = all_ranges[i+1]
+        
+        if r1[1] > r2[0]:
+            errors.append(f"Overlap detected: {r1[2]} and {r2[2]}")
+
+    return errors
+
+def extract_number(text):
+    if isinstance(text, (int, float)):
+        if math.isnan(text): return 0.0
+        return float(text)
+    if not isinstance(text, str):
+        return 0.0
     match = re.search(r'(\d+(\.\d+)?)', text)
-    if match:
-        return float(match.group(1))
-    return 1
-
-def parse_min_tick(text):
-    # "1元/吨" -> 1
-    if not isinstance(text, str): return 1
-    match = re.search(r'(\d+(\.\d+)?)', text)
-    if match:
-        return float(match.group(1))
-    return 1
-
-def parse_margin(text):
-    # "投机买卖0.070 ，套保买卖0.060" -> 0.07
-    if not isinstance(text, str): return 0.1
-    # Look for first percentage or decimal
-    # Sometimes it's "5%" or "0.05"
-    if '%' in text:
-        match = re.search(r'(\d+(\.\d+)?)%', text)
-        if match:
-            return float(match.group(1)) / 100
-    else:
-        # Look for "0.07"
-        match = re.search(r'(\d+\.\d+)', text)
-        if match:
-            return float(match.group(1))
-    return 0.1
-
-def map_exchange(text):
-    if '上海' in text: return 'SHFE'
-    if '大连' in text: return 'DCE'
-    if '郑州' in text: return 'CZCE'
-    if '金融' in text: return 'CFFEX'
-    if '能源' in text: return 'INE'
-    if '广州' in text: return 'GFEX'
-    return 'UNKNOWN'
+    return float(match.group(1)) if match else 0.0
 
 def update_contracts():
-    print("Fetching main contracts list...")
-    try:
-        main_df = ak.futures_display_main_sina()
-        # main_df columns: symbol (e.g. V2409), name, etc.
-        # But actually akshare output might vary.
-        # Let's assume 'symbol' column exists.
-    except Exception as e:
-        print(f"Error fetching main contracts: {e}")
-        return
-
-    print(f"Found {len(main_df)} contracts.")
+    data = load_json(DATA_FILE)
+    report_lines = ["# Futures Contracts Update Report", "", f"Update Time: {datetime.datetime.now()}", "", "| Symbol | Field | Old Value | New Value | Note |", "|---|---|---|---|---|"]
     
-    contracts_data = {}
+    updated_count = 0
     
-    # Load existing to preserve manual edits if needed, or start fresh?
-    # User said "Completely verify and complete", so refreshing is better, 
-    # but maybe keep custom fields if any.
-    if os.path.exists(JSON_PATH):
-        with open(JSON_PATH, 'r', encoding='utf-8') as f:
-            contracts_data = json.load(f)
-
-    for index, row in main_df.iterrows():
-        symbol = row['symbol'] # e.g. rb2410
-        name = row['name'] # e.g. 螺纹钢
-        
-        # Extract generic code: rb2410 -> RB (or rb)
-        # Usually first 1-2 letters.
-        match = re.match(r'^([a-zA-Z]+)', symbol)
-        if not match:
-            continue
-        
-        code = match.group(1).upper()
-        
-        # Skip if we just updated this code (using main contract as proxy for all)
-        # But maybe we want to verify using the *current* main contract.
-        # We process it.
-        
-        print(f"Processing {code} ({name}) using {symbol}...")
+    print(f"Loaded {len(data)} contracts.")
+    
+    for symbol, contract_data in data.items():
+        main_contract = contract_data.get('main_contract', f"{symbol}0")
+        print(f"Updating {symbol} ({main_contract})...")
         
         try:
-            detail_df = ak.futures_contract_detail(symbol=symbol)
-            # detail_df is key-value pair in 'item', 'value' columns
-            
+            detail_df = ak.futures_contract_detail(symbol=main_contract)
+            if detail_df is None or detail_df.empty:
+                print(f"  No data found for {main_contract}")
+                continue
+                
             info = {}
-            for _, r in detail_df.iterrows():
-                info[r['item']] = r['value']
+            for _, row in detail_df.iterrows():
+                info[row['item']] = row['value']
+                
+            raw_trading_hours = info.get('交易时间', '')
+            day_hours, night_hours = parse_time_ranges(raw_trading_hours)
             
-            # Extract fields
-            multiplier = parse_multiplier(info.get('交易单位', ''))
-            min_tick = parse_min_tick(info.get('最小变动价位', ''))
-            margin_rate = parse_margin(info.get('最低交易保证金', ''))
-            exchange_name = info.get('上市交易所', '')
-            exchange = map_exchange(exchange_name)
-            quote_unit = info.get('报价单位', '')
+            new_night_end = ""
+            if night_hours:
+                def get_end_min(r):
+                    s, e = r.split('-')
+                    sh = int(s.split(':')[0])
+                    eh = int(e.split(':')[0])
+                    
+                    # sm = sh*60 + int(s.split(':')[1])
+                    em = eh*60 + int(e.split(':')[1])
+                    
+                    # Logic to determine if this range represents "late night" (next day)
+                    # Standard night session: 21:00 - ...
+                    # If a range starts/ends in early morning (e.g. 00:00-02:30), it is the latest part.
+                    if sh < 12: # Arbitrary cutoff, assuming night session won't start at 10am
+                        em += 24 * 60
+                    
+                    return em
+                
+                last_range = max(night_hours, key=get_end_min)
+                new_night_end = last_range.split('-')[1]
             
-            # Determine trading hours type (approximate for now, can be refined)
-            # Night trading check
-            trading_hours_str = info.get('交易时间', '')
-            night_end = ""
+            margin_raw = info.get('最低交易保证金', '0.1')
+            margin_val = extract_number(margin_raw)
+            if margin_val > 1:
+                margin_val = margin_val / 100
             
-            # Check for 2:30 (Gold, Silver, etc.)
-            if '2:30' in trading_hours_str or '02:30' in trading_hours_str:
-                night_end = '02:30'
-            # Check for 1:00 (Copper, etc.)
-            elif '1:00' in trading_hours_str or '01:00' in trading_hours_str:
-                night_end = '01:00'
-            # Check for 23:00 (Most others)
-            elif '23:00' in trading_hours_str:
-                night_end = '23:00'
-            
-            # Update data
-            contracts_data[code] = {
-                "name": name,
-                "exchange": exchange,
-                "multiplier": multiplier,
-                "min_tick": min_tick,
-                "quote_unit": quote_unit,
-                "margin_rate": margin_rate,
-                "trading_hours": trading_hours_str, # Store raw or simplified?
-                "night_end": night_end,
-                "main_contract": symbol
+            fields_to_update = {
+                'name': info.get('交易品种'),
+                'multiplier': extract_number(info.get('交易单位')),
+                'min_tick': extract_number(info.get('最小变动价位')),
+                'quote_unit': info.get('交易单位'),
+                'margin_rate': margin_val,
+                'trading_hours': raw_trading_hours,
+                'night_end': new_night_end,
+                'day_hours': day_hours,
+                'night_hours': night_hours,
+                'last_updated': datetime.datetime.now().isoformat(),
+                'source_url': 'https://www.akshare.xyz/'
             }
             
-            # Sleep to avoid rate limit
-            time.sleep(0.5)
+            changes_found = False
+            for k, v in fields_to_update.items():
+                old_v = contract_data.get(k)
+                
+                if isinstance(v, float):
+                    if isinstance(old_v, (float, int)) and abs(v - old_v) < 1e-6:
+                        continue
+                elif v == old_v:
+                    continue
+                
+                if isinstance(v, list) and isinstance(old_v, list):
+                    if sorted(v) == sorted(old_v):
+                        continue
+
+                contract_data[k] = v
+                report_lines.append(f"| {symbol} | {k} | {old_v} | {v} | Updated from official source |")
+                changes_found = True
             
+            if changes_found:
+                updated_count += 1
+                
+            val_errors = validate_hours(day_hours, night_hours)
+            if val_errors:
+                print(f"  Validation Errors for {symbol}: {val_errors}")
+                report_lines.append(f"| {symbol} | VALIDATION | - | - | {'; '.join(val_errors)} |")
+
         except Exception as e:
-            print(f"Failed to fetch details for {symbol}: {e}")
-            # If failed, keep existing if present
-            continue
+            print(f"  Error updating {symbol}: {e}")
+            traceback.print_exc()
 
-    # Manual fix for SH (烧碱) if not found (it should be found if in main list)
-    if 'SH' not in contracts_data:
-        print("Manually adding SH (ShaoJian)...")
-        # Try to fetch specific SH contract if we know one, e.g. SH2405?
-        # Or just hardcode based on knowledge if akshare fails.
-        contracts_data['SH'] = {
-            "name": "烧碱",
-            "exchange": "CZCE",
-            "multiplier": 30,
-            "min_tick": 1,
-            "quote_unit": "元/吨",
-            "margin_rate": 0.07,
-            "night_end": "23:00" # Need verification
-        }
-
-    # Save
-    with open(JSON_PATH, 'w', encoding='utf-8') as f:
-        json.dump(contracts_data, f, ensure_ascii=False, indent=2)
+    save_json(DATA_FILE, data)
     
-    print(f"Updated {len(contracts_data)} contracts in {JSON_PATH}")
+    with open(REPORT_FILE, 'w', encoding='utf-8') as f:
+        f.write('\n'.join(report_lines))
+        
+    print(f"Update complete. {updated_count} contracts updated. Report saved to {REPORT_FILE}")
 
 if __name__ == "__main__":
     update_contracts()

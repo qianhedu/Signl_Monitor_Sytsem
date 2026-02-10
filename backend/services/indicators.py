@@ -2,8 +2,9 @@ import akshare as ak
 import pandas as pd
 import numpy as np
 from typing import List, Optional
+from .resample_utils import resample_data
 
-def get_market_data(symbol: str, market: str = "stock", period: str = "daily", adjust: str = "qfq") -> pd.DataFrame:
+def get_market_data(symbol: str, market: str = "stock", period: str = "daily", adjust: str = "qfq", start_date: str = None, end_date: str = None) -> pd.DataFrame:
     """
     使用 akshare 获取市场数据。
     
@@ -14,6 +15,8 @@ def get_market_data(symbol: str, market: str = "stock", period: str = "daily", a
                 以及分钟周期 "60", "30", "15", "5"。
                 注意: 对于 "120", "180" 等特殊周期，本函数会获取基础分钟数据（如60分钟）供后续重采样使用。
         adjust: 复权方式, 默认 "qfq" (前复权)
+        start_date: 开始时间, 格式 'YYYY-MM-DD' 或 'YYYY-MM-DD HH:MM:SS'
+        end_date: 结束时间, 格式 'YYYY-MM-DD' 或 'YYYY-MM-DD HH:MM:SS'
         
     返回:
         pd.DataFrame: 包含 date, open, high, low, close, volume 等列的数据框。
@@ -35,7 +38,14 @@ def get_market_data(symbol: str, market: str = "stock", period: str = "daily", a
                 df = pd.DataFrame()
                 # 优先使用新浪接口
                 try:
-                    df = ak.stock_zh_a_hist(symbol=symbol, period="daily", adjust=adjust)
+                    # 格式化日期参数
+                    sina_start = start_date.replace('-', '') if start_date else None
+                    sina_end = end_date.replace('-', '') if end_date else None
+                    
+                    if sina_start and sina_end:
+                         df = ak.stock_zh_a_hist(symbol=symbol, period="daily", adjust=adjust, start_date=sina_start, end_date=sina_end)
+                    else:
+                         df = ak.stock_zh_a_hist(symbol=symbol, period="daily", adjust=adjust)
                 except Exception as e:
                     print(f"新浪日线接口失败 (用于240m): {e}，尝试腾讯接口...")
                     try:
@@ -43,11 +53,14 @@ def get_market_data(symbol: str, market: str = "stock", period: str = "daily", a
                          prefix = "sh" if symbol.startswith("6") else "sz"
                          if symbol.startswith("4") or symbol.startswith("8"): prefix = "bj"
                          tx_symbol = f"{prefix}{symbol}"
-                         df = ak.stock_zh_a_hist_tx(symbol=tx_symbol, start_date="20200101", adjust=adjust)
+                         tx_start = start_date.replace('-', '') if start_date else "20200101"
+                         tx_end = end_date.replace('-', '') if end_date else "20500101"
+                         df = ak.stock_zh_a_hist_tx(symbol=tx_symbol, start_date=tx_start, end_date=tx_end, adjust=adjust)
                     except Exception as e2:
                          print(f"腾讯日线接口也失败: {e2}")
 
                 if not df.empty:
+                    print(f"DEBUG: akshare columns: {df.columns}")
                     df = df.rename(columns={
                         "日期": "date",
                         "开盘": "open",
@@ -65,10 +78,10 @@ def get_market_data(symbol: str, market: str = "stock", period: str = "daily", a
                 base_period = period
                 need_resample = False
                 
-                # 如果请求的是 90/120/180 分钟，先获取 60 分钟数据，后续再进行重采样
-                # 使用 60 分钟作为基础周期
-                if period in ["180", "120", "90"]:
-                    base_period = "60" 
+                # 如果请求的是 90/120/180/240 分钟，先获取 30 分钟数据，后续再进行重采样
+                # 90分钟必须用30分钟合成 (60分钟无法整除)
+                if period in ["240", "180", "120", "90"]:
+                    base_period = "30" 
                     need_resample = True
                 
                 # 使用东方财富接口获取分钟数据 (支持复权)
@@ -78,7 +91,14 @@ def get_market_data(symbol: str, market: str = "stock", period: str = "daily", a
                 max_retries = 3
                 for attempt in range(max_retries):
                     try:
-                        df = ak.stock_zh_a_hist_min_em(symbol=symbol, period=base_period, adjust=adjust)
+                        if start_date and end_date:
+                            # 确保格式包含时分秒，如果只传了日期，默认补全
+                            min_start = start_date if len(start_date) > 10 else f"{start_date} 09:30:00"
+                            min_end = end_date if len(end_date) > 10 else f"{end_date} 15:00:00"
+                            df = ak.stock_zh_a_hist_min_em(symbol=symbol, period=base_period, adjust=adjust, start_date=min_start, end_date=min_end)
+                        else:
+                            df = ak.stock_zh_a_hist_min_em(symbol=symbol, period=base_period, adjust=adjust)
+                            
                         if not df.empty:
                             break
                     except Exception as e:
@@ -87,8 +107,10 @@ def get_market_data(symbol: str, market: str = "stock", period: str = "daily", a
                         time.sleep(1)
 
                 if not df.empty:
+                    print(f"DEBUG: minute data columns: {df.columns}")
                     df = df.rename(columns={
                         "日期": "date",
+                        "时间": "date",
                         "开盘": "open",
                         "最高": "high",
                         "最低": "low",
@@ -100,102 +122,23 @@ def get_market_data(symbol: str, market: str = "stock", period: str = "daily", a
                             df['date'] = pd.to_datetime(df['date'])
                             df.set_index('date', inplace=True)
                             
-                            # A股自定义重采样逻辑，旨在匹配同花顺(THS)等软件的处理方式
-                            # 同花顺 A股逻辑 (交易时间 09:30-11:30, 13:00-15:00):
-                            # 120分钟: [09:30-11:30] 为第一根, [13:00-15:00] 为第二根 (每天2根)
-                            # 240分钟: [09:30-15:00] 包含全天 (每天1根) -> 已通过日线接口处理
-                            # 90分钟: 非标准周期，通常按时间切分。
-                            # 我们使用基于时间的映射方法来处理。
+                            # 使用统一的重采样工具
+                            df = resample_data(df, period)
                             
-                            def get_period_end_time(ts, period_min):
-                                """
-                                计算给定时间戳归属的K线结束时间。
-                                逻辑：将交易时间标准化为从 09:30 开始的分钟数，计算其所在的周期区间。
-                                """
-                                # 将时间转换为从 09:30 开始的分钟数
-                                # 上午: 09:30 (0) 到 11:30 (120)
-                                # 下午: 13:00 (120 虚拟点) 到 15:00 (240 虚拟点)
-                                
-                                hm = ts.hour * 60 + ts.minute
-                                
-                                # 标准化时间为 "自09:30起的交易分钟数"
-                                # 9:30 = 570m
-                                # 11:30 = 690m
-                                # 13:00 = 780m
-                                # 15:00 = 900m
-                                
-                                minutes_from_open = 0
-                                if 570 < hm <= 690: # 上午盘
-                                    minutes_from_open = hm - 570
-                                elif 780 < hm <= 900: # 下午盘
-                                    minutes_from_open = 120 + (hm - 780)
-                                else:
-                                    # 超出范围或正好是开盘点 (通常closed='right'不会出现)
-                                    return ts
-                                
-                                # 确定所属的区间 (Bin)
-                                # period_min 例如 120
-                                # bin_index = ceil(minutes_from_open / period_min)
-                                import math
-                                bin_idx = math.ceil(minutes_from_open / int(period_min))
-                                
-                                # 计算该区间结束时的交易分钟数
-                                bin_end_trading_min = bin_idx * int(period_min)
-                                
-                                # 将交易分钟数转换回自然时间
-                                # 如果结束时间 <= 120: 在上午
-                                # 如果结束时间 > 120: 在下午
-                                
-                                final_hm = 0
-                                if bin_end_trading_min <= 120:
-                                    final_hm = 570 + bin_end_trading_min
-                                else:
-                                    final_hm = 780 + (bin_end_trading_min - 120)
-                                    
-                                # 构造新的时间戳
-                                new_h = final_hm // 60
-                                new_m = final_hm % 60
-                                
-                                return ts.replace(hour=new_h, minute=new_m, second=0)
-
-                            # 应用映射逻辑
-                            # 注意: 向量化处理会更快，但 apply 方法逻辑更直观
-                            # 优化: 创建唯一时间映射表，减少重复计算
-                            unique_times = pd.Series(df.index.time).unique()
-                            time_map = {}
-                            for t in unique_times:
-                                # 创建一个哑元日期用于函数调用
-                                dummy_dt = pd.Timestamp(year=2000, month=1, day=1, hour=t.hour, minute=t.minute)
-                                mapped_dt = get_period_end_time(dummy_dt, period)
-                                time_map[t] = mapped_dt.time()
-                                
-                            # 赋值新的时间
-                            # 需要保留原有的日期部分
-                            new_dates = []
-                            for idx in df.index:
-                                t = idx.time()
-                                mapped_time = time_map.get(t, t)
-                                new_dates.append(idx.replace(hour=mapped_time.hour, minute=mapped_time.minute))
-                                
-                            df['resample_date'] = new_dates
-                            
-                            # 按重采样后的时间分组聚合
-                            ohlc_dict = {
-                                'open': 'first',
-                                'high': 'max',
-                                'low': 'min',
-                                'close': 'last',
-                                'volume': 'sum'
-                            }
-                            
-                            df_res = df.groupby('resample_date').agg(ohlc_dict).dropna()
-                            df_res.index.name = 'date'
-                            df = df_res.reset_index()
+                            # resample_data 返回的 df index 名为 date，且已排序
+                            # 恢复为列以便后续统一处理
+                            df = df.reset_index()
             else:
                 # stock_zh_a_hist 接口支持 日/周/月
                 df = pd.DataFrame()
                 try:
-                    df = ak.stock_zh_a_hist(symbol=symbol, period=period, adjust=adjust)
+                    sina_start = start_date.replace('-', '') if start_date else None
+                    sina_end = end_date.replace('-', '') if end_date else None
+                    
+                    if sina_start and sina_end:
+                         df = ak.stock_zh_a_hist(symbol=symbol, period=period, adjust=adjust, start_date=sina_start, end_date=sina_end)
+                    else:
+                         df = ak.stock_zh_a_hist(symbol=symbol, period=period, adjust=adjust)
                 except Exception as e:
                     print(f"获取 {symbol} 数据出错: {e}")
                     # 故障转移：仅针对日线，尝试腾讯接口
@@ -206,7 +149,9 @@ def get_market_data(symbol: str, market: str = "stock", period: str = "daily", a
                             if symbol.startswith("4") or symbol.startswith("8"): prefix = "bj"
                             tx_symbol = f"{prefix}{symbol}"
                             # 腾讯接口返回所有历史数据，数据量较大，需注意
-                            df = ak.stock_zh_a_hist_tx(symbol=tx_symbol, start_date="20200101", adjust=adjust)
+                            tx_start = start_date.replace('-', '') if start_date else "20200101"
+                            tx_end = end_date.replace('-', '') if end_date else "20500101"
+                            df = ak.stock_zh_a_hist_tx(symbol=tx_symbol, start_date=tx_start, end_date=tx_end, adjust=adjust)
                         except Exception as e_tx:
                              print(f"腾讯接口备选方案失败: {e_tx}")
 
@@ -372,6 +317,8 @@ def get_market_data(symbol: str, market: str = "stock", period: str = "daily", a
                 
         return df
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         print(f"获取 {symbol} 数据时发生未知错误: {e}")
         return pd.DataFrame()
 
